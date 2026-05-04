@@ -127,6 +127,21 @@ FILENAME_SCALAR_PATTERNS_DICTIONARY = {
         "pattern": r"MSCGMaxIters(?P<Inner_solver_max_iterations>\d+)",
         "type": int,
     },
+    # =========================================================================
+    # PRECONDITIONER PARAMETERS
+    # =========================================================================
+    "Preconditioner_mass": {
+        "pattern": r"mPrec(?P<Preconditioner_mass>-?\d+p?\d*)",
+        "type": float,
+    },
+    "Preconditioner_epsilon": {
+        "pattern": r"EpsPrec(?P<Preconditioner_epsilon>\d*[\.p]?\d+e[+-]\d+|\d+e[+-]\d+)",
+        "type": float,
+    },
+    "Preconditioner_max_iterations": {
+        "pattern": r"PrecMaxIters(?P<Preconditioner_max_iterations>\d+)",
+        "type": int,
+    },
 }
 
 
@@ -359,6 +374,24 @@ FILE_CONTENTS_SCALAR_PATTERNS_DICTIONARY = {
     },
     "Generic_solver_max_iterations": {
         "line_identifier": "Max solver iters = ",
+        "regex_pattern": r"(\d+)",
+        "type": int,
+    },
+    # =========================================================================
+    # PRECONDITIONER PARAMETERS
+    # =========================================================================
+    "Preconditioner_mass": {
+        "line_identifier": "Preconditioner mass =",
+        "regex_pattern": r"(-?\d+(\.\d+)?)",
+        "type": float,
+    },
+    "Preconditioner_epsilon": {
+        "line_identifier": "Preconditioner epsilon =",
+        "regex_pattern": r"(\d+(?:\.\d+)?e[+-]\d+)",
+        "type": float,
+    },
+    "Preconditioner_max_iterations": {
+        "line_identifier": "Preconditioner max iters =",
         "regex_pattern": r"(\d+)",
         "type": int,
     },

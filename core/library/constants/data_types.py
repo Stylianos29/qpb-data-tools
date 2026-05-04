@@ -85,6 +85,7 @@ PARAMETERS_WITH_EXPONENTIAL_FORMAT = [
     "Solver_epsilon",
     "Inner_solver_epsilon",
     "MSCG_epsilon",
+    "Preconditioner_epsilon",
 ]
 
 PARAMETERS_OF_INTEGER_VALUE = [

@@ -48,6 +48,12 @@ TUNABLE_PARAMETER_NAMES_LIST = [
     # NOTE: Maximum iterations for solvers are absent due to variability
     # that does not affect results
     # =========================================================================
+    # PRECONDITIONER PARAMETERS
+    # =========================================================================
+    "Preconditioner_mass",  # Mass used in CG preconditioner
+    "Preconditioner_epsilon",  # Preconditioner CG tolerance
+    "Preconditioner_max_iterations",  # Max iterations for preconditioner CG
+    # =========================================================================
     # Stochastic Estimation Parameters
     # =========================================================================
     # Parameters for stochastic trace estimation methods
