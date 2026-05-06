@@ -94,4 +94,5 @@ PARAMETERS_OF_INTEGER_VALUE = [
     "Neuberger_order",
     "Rational_order",
     "Number_of_Chebyshev_terms",
+    "Preconditioner_max_iterations",
 ]

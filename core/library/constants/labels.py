@@ -38,8 +38,8 @@ TITLE_LABELS_BY_COLUMN_NAME = {
     "MSCG_epsilon": "$\\epsilon_{MSCG}$",
     "Inner_solver_epsilon": "$\\epsilon_{MSCG}$",
     "Preconditioner_mass": "$am_{\\text{prec}}$",
-    "Preconditioner_epsilon": "$\\epsilon_{\\text{prec}}$",
-    "Preconditioner_max_iterations": "MaxIters$_{\\text{prec}}$",
+    "Preconditioner_epsilon": "$\\epsilon^2_{\\text{prec}}$",
+    "Preconditioner_max_iterations": "$N^{\\max}_{\\text{prec}}$",
     "KL_diagonal_order": "n",
     "Zolotarev_order": "n",
     "Neuberger_order": "n",
@@ -47,6 +47,7 @@ TITLE_LABELS_BY_COLUMN_NAME = {
     "KL_scaling_factor": "$\\mu$",
     "Number_of_vectors": "# of random vecs",
     "Kappa_value": "$\\kappa$",
+    "Number_of_spinors": "$n_s$",
     # Output quantities
     "Condition_number": "$\\kappa_{\\mathbb{X}^2}$",
     "Minimum_eigenvalue_squared": "$\\lambda_{min}^2$",
@@ -246,8 +247,8 @@ AXES_LABELS_BY_COLUMN_NAME = {
     "Condition_number": "$\\kappa_{\\mathbb{X}^2}$",
     "KL_scaling_factor": "$\\mu$",
     "Preconditioner_mass": "$am_{\\text{prec}}$",
-    "Preconditioner_epsilon": "$\\epsilon_{\\text{prec}}$",
-    "Preconditioner_max_iterations": "$N^_{\\max}_{\\text{prec}}$",
+    "Preconditioner_epsilon": "$\\epsilon^2_{\\text{prec}}$",
+    "Preconditioner_max_iterations": "$N^{\\max}_{\\text{prec}}$",
 }
 
 
@@ -270,5 +271,6 @@ LEGEND_LABELS_BY_COLUMN_NAME = {
     "Inner_solver_epsilon": "$\\epsilon_{MSCG}$:",
     "KL_scaling_factor": "$\\mu$",
     "Preconditioner_mass": "$am_{\\text{prec}}=$",
-    "Preconditioner_epsilon": "$\\epsilon_{\\text{prec}}$=",
+    "Preconditioner_epsilon": "$\\epsilon^2_{\\text{prec}}$=",
+    "Preconditioner_max_iterations": "$N^{\\max}_{\\text{prec}}$=",
 }
