@@ -130,6 +130,10 @@ FILENAME_SCALAR_PATTERNS_DICTIONARY = {
     # =========================================================================
     # PRECONDITIONER PARAMETERS
     # =========================================================================
+    "Preconditioner_order": {
+        "pattern": r"nPrec(?P<Preconditioner_order>\d+)",
+        "type": int,
+    },
     "Preconditioner_mass": {
         "pattern": r"mPrec(?P<Preconditioner_mass>-?\d+p?\d*)",
         "type": float,
@@ -380,6 +384,11 @@ FILE_CONTENTS_SCALAR_PATTERNS_DICTIONARY = {
     # =========================================================================
     # PRECONDITIONER PARAMETERS
     # =========================================================================
+    "Preconditioner_order": {
+        "line_identifier": "Preconditioner order =",
+        "regex_pattern": r"(\d+)",
+        "type": int,
+    },
     "Preconditioner_mass": {
         "line_identifier": "Preconditioner mass =",
         "regex_pattern": r"(-?\d+(\.\d+)?)",
