@@ -323,6 +323,19 @@ FILE_CONTENTS_SCALAR_PATTERNS_DICTIONARY = {
         "type": float,
     },
     # =========================================================================
+    # SOLVER ALGORITHM
+    #
+    # Name of the iterative solver algorithm reported in the log header
+    # (e.g., "CG", "BiCGStab"). Identifies which solver was actually
+    # used at runtime, independent of the precision/tolerance parameters
+    # below.
+    # =========================================================================
+    "Solver_type": {
+        "line_identifier": "Solver =",
+        "regex_pattern": r"Solver =\s*(\S+)",
+        "type": str,
+    },
+    # =========================================================================
     # SOLVER PRECISION PARAMETERS
     #
     # These parameters control the precision of iterative CG/MSCG

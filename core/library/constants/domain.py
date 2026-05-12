@@ -40,6 +40,7 @@ TUNABLE_PARAMETER_NAMES_LIST = [
     # Solver Parameters
     # =========================================================================
     # Convergence tolerances and iteration limits for various solvers
+    "Solver_type",  # Iterative solver algorithm name (e.g., CG, BiCGStab)
     "CG_epsilon",  # Conjugate gradient solver tolerance
     "Solver_epsilon",  # Generic/outer solver tolerance
     "MSCG_epsilon",  # Multi-shift CG solver tolerance (inner)

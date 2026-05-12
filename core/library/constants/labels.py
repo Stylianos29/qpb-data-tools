@@ -55,6 +55,7 @@ TITLE_LABELS_BY_COLUMN_NAME = {
     "Maximum_eigenvalue_squared": "$\\lambda_{max}^2$",
     "Number_of_gauge_configurations": "# of configs",
     "Threads_per_process": "$n_{\\text{OMP}}$",
+    "Solver_type": "Solver",
 }
 
 
@@ -89,6 +90,7 @@ FILENAME_LABELS_BY_COLUMN_NAME = {
     "KL_scaling_factor": "mu",
     "MPI_geometry": "MPI",
     "Threads_per_process": "OMP",
+    "Solver_type": "",
 }
 
 
@@ -277,4 +279,5 @@ LEGEND_LABELS_BY_COLUMN_NAME = {
     "Preconditioner_mass": "$am_{\\text{prec}}=$",
     "Preconditioner_epsilon": "$\\epsilon_{\\text{prec}}$=",
     "Preconditioner_max_iterations": "$N^{\\max}_{\\text{prec}}$=",
+    "Solver_type": "Solver type:",
 }
