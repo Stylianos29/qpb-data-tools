@@ -10,6 +10,8 @@ import os
 import pandas as pd
 import h5py
 
+from library.constants.data_types import PARAMETERS_OF_INTEGER_VALUE
+
 
 def _classify_parameters_by_uniqueness(scalar_params_list):
     """
@@ -123,6 +125,19 @@ def _create_hdf5_structure_with_constant_params(
     return data_files_set_group
 
 
+def _coerce_integer_columns(dataframe):
+    """
+    Convert columns listed in PARAMETERS_OF_INTEGER_VALUE to pandas
+    nullable Int64 type so they are written to CSV without a decimal
+    point. Uses Int64 (nullable) rather than int to survive NaN values.
+    """
+    df = dataframe.copy()
+    for col in PARAMETERS_OF_INTEGER_VALUE:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
+    return df
+
+
 def _export_dataframe_to_csv(dataframe, output_path, logger, description="parameters"):
     """
     Export a pandas DataFrame to CSV file with logging.
@@ -133,7 +148,8 @@ def _export_dataframe_to_csv(dataframe, output_path, logger, description="parame
         - logger: Logger instance
         - description (str): Description for logging message
     """
-    dataframe.to_csv(output_path, index=False)
+    # dataframe.to_csv(output_path, index=False)
+    _coerce_integer_columns(dataframe).to_csv(output_path, index=False)
     logger.info(
         f"Extracted {description} are stored in the "
         f"'{os.path.basename(output_path)}' file."

@@ -1085,7 +1085,9 @@ class DataPlotter(DataFrameAnalyzer):
                     constants,
                 )
             else:
-                label = self._format_group_value_as_label(value)
+                label = self._format_group_value_as_label(
+                    value, kwargs.get("grouping_variable")
+                )
 
             # Get style
             marker, color = style_map[value]
@@ -1533,9 +1535,10 @@ class DataPlotter(DataFrameAnalyzer):
             if len(val2) == 1:
                 val2_single = val2[0]
                 if isinstance(val2_single, (int, float)):
-                    # Use f-string formatting instead of format()
-                    # function
-                    val2_formatted = f"{val2_single:{number_format}}"
+                    if var2 in constants.PARAMETERS_OF_INTEGER_VALUE:
+                        val2_formatted = str(int(val2_single))
+                    else:
+                        val2_formatted = f"{val2_single:{number_format}}"
                 else:
                     val2_formatted = str(val2_single)
             else:
@@ -1556,9 +1559,11 @@ class DataPlotter(DataFrameAnalyzer):
             if len(label_value) == 1:
                 single_value = label_value[0]
                 if isinstance(single_value, (int, float)):
-                    # Use f-string formatting instead of format()
-                    # function
-                    formatted_value = f"{single_value:{number_format}}"
+                    # from library.constants.data_types import PARAMETERS_OF_INTEGER_VALUE
+                    if labeling_variable in constants.PARAMETERS_OF_INTEGER_VALUE:
+                        formatted_value = str(int(single_value))
+                    else:
+                        formatted_value = f"{single_value:{number_format}}"
                 else:
                     formatted_value = str(single_value)
                 return formatted_value
@@ -1566,11 +1571,19 @@ class DataPlotter(DataFrameAnalyzer):
                 # Handle multiple values
                 return f"[{', '.join(str(v) for v in label_value)}]"
 
-    def _format_group_value_as_label(self, value: Tuple[Any, ...]) -> str:
-        """Format group value as a readable label."""
+    def _format_group_value_as_label(self, value, param_name=None) -> str:
+        # from library.constants.data_types import PARAMETERS_OF_INTEGER_VALUE
+        def fmt(v):
+            if (
+                isinstance(v, float)
+                and param_name in constants.PARAMETERS_OF_INTEGER_VALUE
+            ):
+                return str(int(v))
+            return str(v)
+
         if isinstance(value, tuple):
-            return " ".join(str(v) for v in value)
-        return str(value)
+            return " ".join(fmt(v) for v in value)
+        return fmt(value)
 
     def _should_use_empty_marker(
         self,

@@ -1,8 +1,12 @@
 """Data type mappings and conversion functions."""
 
 import ast
-import pandas as pd
 
+# TODO: DTYPE_MAPPING and PARAMETERS_OF_INTEGER_VALUE are partially
+# redundant - they list the same kind of information in two places, and
+# it might cause bugs by keeping them in sync manually. A future cleanup
+# would derive DTYPE_MAPPING from PARAMETERS_OF_INTEGER_VALUE
+# automatically.
 DTYPE_MAPPING = {
     "Configuration_label": str,
     "APE_iterations": int,
@@ -14,6 +18,8 @@ DTYPE_MAPPING = {
     "Number_of_Chebyshev_terms": int,
     "KL_diagonal_order": int,
     "Rational_order": int,
+    "Preconditioner_max_iterations": "Int64",  # nullable, capital I
+    "Preconditioner_order": "Int64",
 }
 
 

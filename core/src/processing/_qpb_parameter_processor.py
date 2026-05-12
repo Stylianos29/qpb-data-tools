@@ -7,6 +7,8 @@ import pandas as pd
 # Import library components
 from library.data import DataFrameAnalyzer, HDF5Analyzer, load_csv
 
+from src.parsing._shared_parsing import _coerce_integer_columns
+
 # Import parameter transformation components
 from src.processing._param_transform_engine import (
     ParameterTransformationEngine,
@@ -309,7 +311,8 @@ class QPBParameterProcessor:
         self.logger.info(f"Exporting to: {output_path}")
 
         if self.dataframe is not None:
-            self.dataframe.to_csv(output_path, index=False)
+            _coerce_integer_columns(self.dataframe).to_csv(output_path, index=False)
+            # self.dataframe.to_csv(output_path, index=False)
             file_size = os.path.getsize(output_path) / 1024  # KB
             self.logger.info(f"✓ Export completed successfully ({file_size:.1f} KB)")
         else:
