@@ -247,6 +247,10 @@ HDF5_PROCESSING_RULES = {
         "output_pattern": "Average_number_of_CG_iterations_per_spinor",
         "aggregation_method": "mean_with_error",
         "condition": "all_lengths_greater_than_one",
+        "fallback": {
+            "aggregation_method": "single_value",
+            "condition": "all_lengths_equal_to_one",
+        },
     },
     "Final_CG_relative_residual_squared": {
         "output_pattern": "Final_CG_relative_residual_squared_per_spinor",
