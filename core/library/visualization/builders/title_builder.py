@@ -1,4 +1,5 @@
 from typing import Optional
+import math
 
 from library.constants.data_types import PARAMETERS_WITH_EXPONENTIAL_FORMAT
 
@@ -298,6 +299,8 @@ class PlotTitleBuilder:
                 continue
 
             value = metadata[param_name]
+            if isinstance(value, float) and not math.isfinite(value):
+                continue  # nothing meaningful to show
             label = self.title_labels.get(param_name, param_name)
             formatted_value = self._format_value(param_name, value)
             parts.append(f"{label}={formatted_value},")

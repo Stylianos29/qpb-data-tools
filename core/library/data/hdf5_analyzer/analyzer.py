@@ -8,6 +8,7 @@ a familiar API similar to DataFrameAnalyzer.
 
 from typing import List, Any, Optional, Callable, Union
 from pathlib import Path
+import math
 
 import numpy as np
 import pandas as pd
@@ -185,6 +186,8 @@ class HDF5Analyzer(_HDF5DataManager):
     def _format_single_value(self, value: Any) -> str:
         """Format a single value for display."""
         if isinstance(value, float):
+            if not math.isfinite(value):
+                return str(value)
             if value == int(value):
                 return str(int(value))
             else:
