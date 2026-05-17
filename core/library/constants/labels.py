@@ -274,7 +274,7 @@ LEGEND_LABELS_BY_COLUMN_NAME = {
     "Threads_per_process": "$n_{\\text{OMP}}=$",
     "Outer_solver_epsilon": "$\\epsilon_{CG}$:",
     "Inner_solver_epsilon": "$\\epsilon_{MSCG}$:",
-    "KL_scaling_factor": "$\\mu$",
+    "KL_scaling_factor": "$\\mu=$",
     "Preconditioner_order": "$n_{\\text{prec}}=$",
     "Preconditioner_mass": "$am_{\\text{prec}}=$",
     "Preconditioner_epsilon": "$\\epsilon_{\\text{prec}}$=",
