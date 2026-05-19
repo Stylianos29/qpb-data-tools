@@ -289,8 +289,9 @@ class PlotTitleBuilder:
             "Rational_order",
         }
 
+        additional_text_part = None  # held aside, appended at the end
+
         for param_name in tunable_params:
-            # Skip if in excluded set OR if it's a special parameter already handled
             if (
                 param_name in excluded
                 or param_name not in metadata
@@ -299,11 +300,22 @@ class PlotTitleBuilder:
                 continue
 
             value = metadata[param_name]
+
             if isinstance(value, float) and not math.isfinite(value):
-                continue  # nothing meaningful to show
+                continue  # skip NaN/inf values from title (existing fix)
+
+            if param_name == "Additional_text":
+                # No label — just the value, deferred to end
+                additional_text_part = str(value).rstrip(",")
+                continue
+
             label = self.title_labels.get(param_name, param_name)
             formatted_value = self._format_value(param_name, value)
             parts.append(f"{label}={formatted_value},")
+
+        # Append Additional_text value (no label) after all other params
+        if additional_text_part:
+            parts.append(f"{additional_text_part},")
 
         return parts
 
