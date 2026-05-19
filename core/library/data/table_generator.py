@@ -1,5 +1,6 @@
 import os
 from typing import Callable, Union, Optional
+import math
 
 import pandas as pd
 import numpy as np
@@ -264,6 +265,8 @@ class TableGenerator(DataFrameAnalyzer):
                         if isinstance(value, float):
                             if pd.isna(value):
                                 formatted_value = "NaN"
+                            elif not math.isfinite(value):  # covers inf/-inf
+                                formatted_value = str(value)
                             elif value == int(value):
                                 formatted_value = str(int(value))
                             else:
