@@ -141,11 +141,21 @@ class PlotFilenameBuilder:
             working_metadata.pop("Kernel_operator_type", None)
 
         # 4. Add multivalued tunable parameter labels and values
+        #    (Additional_text is held aside and appended at the end,
+        #     without a label prefix)
         for param in multivalued_params:
-            if param in working_metadata:
-                label = self.filename_labels.get(param, param)
-                sanitized_value = self._sanitize_value(working_metadata[param])
-                filename_parts.append(f"{label}{sanitized_value}")
+            if param not in working_metadata:
+                continue
+            if param == "Additional_text":
+                additional_text_part = self._sanitize_value(working_metadata[param])
+                continue
+            label = self.filename_labels.get(param, param)
+            sanitized_value = self._sanitize_value(working_metadata[param])
+            filename_parts.append(f"{label}{sanitized_value}")
+
+        # Append Additional_text value (no label) after other multivalued params
+        if additional_text_part:
+            filename_parts.append(additional_text_part)
 
         # 5. Determine prefix if specified
         prefix = self._determine_prefix(custom_prefix, include_combined_prefix)

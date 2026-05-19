@@ -145,6 +145,12 @@ def load_csv(
         # Check for missing values
         _check_missing_values(dataframe, file_path, suppress_warnings)
 
+        # Unwrap single-element Additional_text tuples to plain strings
+        if "Additional_text" in dataframe.columns:
+            dataframe["Additional_text"] = dataframe["Additional_text"].apply(
+                lambda v: v[0] if isinstance(v, tuple) and len(v) == 1 else v
+            )
+
         logging.info(
             f"Successfully loaded CSV with shape {dataframe.shape}: {file_path}"
         )
