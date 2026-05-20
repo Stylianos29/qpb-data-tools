@@ -143,6 +143,7 @@ class PlotFilenameBuilder:
         # 4. Add multivalued tunable parameter labels and values
         #    (Additional_text is held aside and appended at the end,
         #     without a label prefix)
+        additional_text_part = None
         for param in multivalued_params:
             if param not in working_metadata:
                 continue
