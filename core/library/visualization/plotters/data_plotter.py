@@ -1,5 +1,6 @@
 import os
 from typing import Optional, Callable, Dict, List, Union, Any, Tuple
+import math
 
 import numpy as np
 import pandas as pd
@@ -1534,6 +1535,10 @@ class DataPlotter(DataFrameAnalyzer):
 
             if len(val2) == 1:
                 val2_single = val2[0]
+                if isinstance(val2_single, float) and not math.isfinite(val2_single):
+                    # val2 is NaN/inf (e.g. Preconditioner_order for unpreconditioned
+                    # runs) — omit the second variable from the label entirely
+                    return str(val1)
                 if isinstance(val2_single, (int, float)):
                     if var2 in constants.PARAMETERS_OF_INTEGER_VALUE:
                         val2_formatted = str(int(val2_single))
