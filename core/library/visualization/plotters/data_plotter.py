@@ -1550,6 +1550,10 @@ class DataPlotter(DataFrameAnalyzer):
                 # Handle multiple values
                 val2_formatted = f"[{', '.join(str(v) for v in val2)}]"
 
+            if var2 == "Additional_text":
+                # No label prefix — just the value in parentheses
+                return f"{val1} ({val2_formatted})"
+
             var2_label = constants.LEGEND_LABELS_BY_COLUMN_NAME.get(var2, var2)
             return f"{val1} ({var2_label}{val2_formatted})"
         else:
