@@ -1,4 +1,5 @@
 from typing import Optional, Union, List
+import math
 
 from library.constants import OVERLAP_OPERATOR_METHODS, KERNEL_OPERATOR_TYPES
 
@@ -224,6 +225,8 @@ class PlotFilenameBuilder:
         >>> builder._sanitize_value("(4, 4, 4)")
         '444'
         """
+        if isinstance(value, float) and math.isfinite(value) and value == int(value):
+            value = int(value)
         return (
             str(value)
             .replace(".", "p")
