@@ -51,10 +51,12 @@ TUNABLE_PARAMETER_NAMES_LIST = [
     # =========================================================================
     # PRECONDITIONER PARAMETERS
     # =========================================================================
+    # LEGACY — see patterns.py for details
     "Preconditioner_order",  # Order of CG preconditioner expansion
     "Preconditioner_mass",  # Mass used in CG preconditioner
     "Preconditioner_epsilon",  # Preconditioner CG tolerance
     "Preconditioner_max_iterations",  # Max iterations for preconditioner CG
+    "Preconditioner_MSCG_epsilon",  # Preconditioner MSCG (sign-function) tolerance
     # =========================================================================
     # Stochastic Estimation Parameters
     # =========================================================================

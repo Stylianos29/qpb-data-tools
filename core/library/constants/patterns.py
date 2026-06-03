@@ -130,6 +130,9 @@ FILENAME_SCALAR_PATTERNS_DICTIONARY = {
     # =========================================================================
     # PRECONDITIONER PARAMETERS
     # =========================================================================
+    # LEGACY (pre-cascaded preconditioner): no longer produced by
+    # current qpb, retained so historical KL-invert datasets remain
+    # parseable.
     "Preconditioner_order": {
         "pattern": r"nPrec(?P<Preconditioner_order>\d+)",
         "type": int,
@@ -145,6 +148,10 @@ FILENAME_SCALAR_PATTERNS_DICTIONARY = {
     "Preconditioner_max_iterations": {
         "pattern": r"PrecMaxIters(?P<Preconditioner_max_iterations>\d+)",
         "type": int,
+    },
+    "Preconditioner_MSCG_epsilon": {
+        "pattern": r"EpsPrecMSCG(?P<Preconditioner_MSCG_epsilon>\d*[\.p]?\d+e[+-]\d+|\d+e[+-]\d+)",
+        "type": float,
     },
 }
 
@@ -397,6 +404,9 @@ FILE_CONTENTS_SCALAR_PATTERNS_DICTIONARY = {
     # =========================================================================
     # PRECONDITIONER PARAMETERS
     # =========================================================================
+    # LEGACY (pre-cascaded preconditioner): no longer produced by
+    # current qpb, retained so historical KL-invert datasets remain
+    # parseable.
     "Preconditioner_order": {
         "line_identifier": "Preconditioner order =",
         "regex_pattern": r"(\d+)",
@@ -416,6 +426,11 @@ FILE_CONTENTS_SCALAR_PATTERNS_DICTIONARY = {
         "line_identifier": "Preconditioner max iters =",
         "regex_pattern": r"(\d+)",
         "type": int,
+    },
+    "Preconditioner_MSCG_epsilon": {
+        "line_identifier": "Preconditioner MSCG epsilon =",
+        "regex_pattern": r"(\d+(?:\.\d+)?e[+-]\d+)",
+        "type": float,
     },
 }
 
@@ -454,12 +469,12 @@ FILE_CONTENTS_ARRAY_PATTERNS_DICTIONARY = {
         "type": float,
     },
     "Final_BiCGStab_relative_residual_squared": {
-        "line_identifier": ", BiCGStab converged,",
+        "line_identifier": "BiCGStab converged,",
         "regex_pattern": r", relative = (\d+(?:\.\d+)?e[+-]\d+)",
         "type": float,
     },
     "BiCGStab_total_calculation_time_per_spinor": {
-        "line_identifier": ", BiCGStab converged,",
+        "line_identifier": "BiCGStab converged,",
         "regex_pattern": r", t = (\d+(?:\.\d+)?) sec",
         "type": float,
     },
