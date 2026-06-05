@@ -1,5 +1,5 @@
 import os
-from typing import Optional, Callable, Dict, List, Union, Any, Tuple
+from typing import Optional, Callable, Dict, List, Union, Any, Tuple, cast
 import math
 
 import numpy as np
@@ -112,6 +112,7 @@ class DataPlotter(DataFrameAnalyzer):
         # Plot variables
         self.xaxis_variable_name = None
         self.yaxis_variable_name = None
+        self.zaxis_variable_name = None
         self.plots_base_name = None
 
         # Storage for recent plots (for inset functionality)
@@ -1796,3 +1797,469 @@ class DataPlotter(DataFrameAnalyzer):
             f"Output directory: {self.plots_directory}\n"
             f"Plot variables: {self.xaxis_variable_name} vs {self.yaxis_variable_name}"
         )
+
+    def set_heatmap_variables(
+        self,
+        x_variable: str,
+        y_variable: str,
+        value_variable: str,
+        clear_existing: bool = False,
+    ) -> None:
+        """
+        Set the x-axis, y-axis, and colour (value) variables for a
+        heatmap.
+
+        Unlike set_plot_variables(), a heatmap needs THREE variables:
+        two parameters spanning the grid axes and one numeric quantity
+        mapped to colour.
+
+        Parameters:
+        -----------
+        x_variable : str
+            Column name for the x-axis. Must be multivalued (>= 2 unique
+            values). Need not be a tunable parameter.
+        y_variable : str
+            Column name for the y-axis. Must be multivalued (>= 2 unique
+            values). Need not be a tunable parameter.
+        value_variable : str
+            Column name for the colour-mapped quantity. Must be numeric
+            (plain numbers, (value, error) tuples, or gvar objects).
+        clear_existing : bool, optional
+            Whether to clear the existing plot subdirectory.
+
+        Raises:
+        -------
+        ValueError
+            If any variable is missing, if x/y are not multivalued, or
+            if the value variable is not numeric/coercible.
+        """
+        for var in (x_variable, y_variable, value_variable):
+            if var not in self.dataframe.columns:
+                raise ValueError(f"'{var}' is not a column in the DataFrame.")
+
+        # x and y must be multivalued (regardless of being tunable or not)
+        for axis_name, var in (("x-axis", x_variable), ("y-axis", y_variable)):
+            if self.dataframe[var].nunique(dropna=True) < 2:
+                raise ValueError(
+                    f"Heatmap {axis_name} variable '{var}' must be multivalued "
+                    f"(it has fewer than two unique values)."
+                )
+
+        # value variable must be numeric (or coercible from tuple/gvar)
+        try:
+            self._coerce_heatmap_value_series(self.dataframe[value_variable])
+        except ValueError as exc:
+            raise ValueError(
+                f"Heatmap value variable '{value_variable}' must be numeric. {exc}"
+            ) from exc
+
+        self.xaxis_variable_name = x_variable
+        self.yaxis_variable_name = y_variable
+        self.zaxis_variable_name = value_variable
+        self.plots_base_name = f"{value_variable}_Vs_{x_variable}_and_{y_variable}"
+
+        # Prepare subdirectory using file manager (reused by _save_plot)
+        self.individual_plots_subdirectory = self.file_manager.prepare_subdirectory(
+            self.plots_base_name, clear_existing=clear_existing
+        )
+
+    def _coerce_heatmap_value_series(self, series: pd.Series) -> pd.Series:
+        """
+        Return a numeric float Series for the heatmap value variable.
+
+        Accepts plain numeric columns, (value, error) tuple/2D-array
+        columns (the mean is taken), and gvar object columns. Raises
+        ValueError if the column cannot be reduced to numbers.
+        """
+        if pd.api.types.is_numeric_dtype(series):
+            return series.astype(float)
+
+        values = series.to_numpy()
+
+        # (value, error) tuples or (n, 2) arrays -> take the value part
+        if self.data_processor.is_tuple_array(values):
+            means, _ = self.data_processor.extract_values_and_errors(values)
+            return pd.Series(np.asarray(means, dtype=float), index=series.index)
+
+        # gvar objects -> take the mean
+        try:
+            import gvar
+
+            return pd.Series(
+                np.asarray(gvar.mean(values), dtype=float), index=series.index
+            )
+        except ImportError:
+            pass
+        except Exception:
+            pass
+
+        raise ValueError(
+            f"Column '{series.name}' is not numeric and could not be coerced "
+            f"(expected plain numbers, (value, error) tuples, or gvar objects)."
+        )
+
+    def _format_heatmap_tick(self, variable_name: str, value: Any) -> str:
+        """
+        Format an axis tick label using the project's parameter conventions.
+
+        Integer parameters render as plain integers; exponential-format
+        parameters render in scientific notation; everything else falls
+        back to a compact numeric/string representation.
+        """
+        if variable_name in constants.PARAMETERS_OF_INTEGER_VALUE:
+            try:
+                return str(int(round(float(value))))
+            except (ValueError, TypeError):
+                return str(value)
+
+        if variable_name in constants.PARAMETERS_WITH_EXPONENTIAL_FORMAT:
+            try:
+                return format(float(value), ".0e")
+            except (ValueError, TypeError):
+                return str(value)
+
+        if isinstance(value, float):
+            if math.isfinite(value) and value.is_integer():
+                return str(int(value))
+            return f"{value:g}"
+
+        return str(value)
+
+    def _annotate_heatmap_cells(
+        self,
+        ax: Axes,
+        values: np.ndarray,
+        im: Any,
+        annotation_format: str,
+        font_size: int,
+    ) -> None:
+        """
+        Write each cell's value in the centre of the cell, choosing black or
+        white text automatically for contrast against the cell colour.
+        """
+        n_rows, n_cols = values.shape
+        for i in range(n_rows):
+            for j in range(n_cols):
+                val = values[i, j]
+                if not np.isfinite(val):
+                    continue
+                rgba = im.cmap(im.norm(val))
+                luminance = 0.299 * rgba[0] + 0.587 * rgba[1] + 0.114 * rgba[2]
+                text_color = "white" if luminance < 0.5 else "black"
+                ax.text(
+                    j,
+                    i,
+                    format(val, annotation_format),
+                    ha="center",
+                    va="center",
+                    color=text_color,
+                    fontsize=max(6, font_size - 3),
+                )
+
+    def _highlight_heatmap_optimum(
+        self,
+        ax: Axes,
+        values: np.ndarray,
+        mode: str,
+        edge_color: str,
+    ) -> None:
+        """
+        Draw a rectangle around the optimal (min or max) finite cell.
+        """
+        from matplotlib.patches import Rectangle
+
+        finite_mask = np.isfinite(values)
+        if not finite_mask.any():
+            return
+
+        masked = np.where(finite_mask, values, np.nan)
+        if mode == "min":
+            flat_index = int(np.nanargmin(masked))
+        elif mode == "max":
+            flat_index = int(np.nanargmax(masked))
+        else:
+            raise ValueError(
+                f"highlight_optimum must be 'min', 'max', or None; got '{mode}'."
+            )
+
+        i, j = np.unravel_index(flat_index, masked.shape)
+        ax.add_patch(
+            Rectangle(
+                (j - 0.5, i - 0.5),
+                1,
+                1,
+                fill=False,
+                edgecolor=edge_color,
+                linewidth=2.5,
+                zorder=5,
+            )
+        )
+
+    def plot_heatmap(
+        self,
+        *,
+        # Data handling
+        aggregation: str = "mean",
+        # Colour mapping
+        cmap: Union[str, Any] = "viridis",
+        center: Optional[float] = None,
+        vmin: Optional[float] = None,
+        vmax: Optional[float] = None,
+        nan_color: str = "lightgrey",
+        # Cell annotations
+        annotate_cells: bool = True,
+        annotation_format: str = ".1f",
+        # Optimum highlight
+        highlight_optimum: Optional[str] = "min",  # "min" | "max" | None
+        optimum_color: str = "red",
+        # Axes
+        invert_yaxis: bool = False,
+        xtick_rotation: float = 0.0,
+        colorbar_label: Optional[str] = None,
+        # Figure / layout
+        figure_size: Tuple[float, float] = (8, 6),
+        font_size: int = 13,
+        left_margin_adjustment: float = 0.15,
+        right_margin_adjustment: float = 0.98,
+        bottom_margin_adjustment: float = 0.12,
+        top_margin_adjustment: float = 0.92,
+        # Title (reuses plot()'s title machinery)
+        include_plot_title: bool = False,
+        custom_plot_title: Optional[str] = None,
+        leading_plot_substring: Optional[str] = None,
+        excluded_from_title_list: Optional[List[str]] = None,
+        title_size: int = 15,
+        bold_title: bool = False,
+        title_number_format: str = ".2f",
+        title_exponential_format: str = ".0e",
+        title_wrapping_length: int = 80,
+        # Output
+        save_figure: bool = True,
+        file_format: Optional[str] = None,
+        verbose: bool = True,
+    ) -> "DataPlotter":
+        """
+        Create one heatmap per parameter combination from the DataFrame.
+
+        A heatmap visualises a numeric quantity (the value variable) as
+        colour over a grid spanned by two parameters (the x and y
+        variables). It is the natural tool for locating the combination
+        of two parameters that minimises/maximises a quantity.
+
+        Faceting follows the same logic as plot(): the data is grouped
+        by every multivalued tunable parameter EXCEPT the axis
+        variables, and one figure is produced per group. There is
+        intentionally no grouping_variable for heatmaps.
+
+        Returns:
+        --------
+        DataPlotter
+            Self for method chaining.
+        """
+        if (
+            self.xaxis_variable_name is None
+            or self.yaxis_variable_name is None
+            or self.zaxis_variable_name is None
+        ):
+            raise ValueError("Call set_heatmap_variables() before plot_heatmap().")
+
+        # Non-Optional local aliases (also narrow the type for the checker)
+        x_var = self.xaxis_variable_name
+        y_var = self.yaxis_variable_name
+        z_var = self.zaxis_variable_name
+
+        # Facet by all multivalued tunable params except the axis variables.
+        # Only filter out axis variables that are actually tunable params;
+        # a non-tunable axis is simply absent from the grouping set already.
+        axis_filter = [
+            var
+            for var in (self.xaxis_variable_name, self.yaxis_variable_name)
+            if var in self.list_of_multivalued_tunable_parameter_names
+        ]
+        grouped = self.group_by_multivalued_tunable_parameters(
+            filter_out_parameters_list=axis_filter,
+            verbose=verbose,
+        )
+
+        for group_keys, group_df in grouped:
+            metadata = self._extract_group_metadata(group_keys, group_df)
+
+            # --- Reshape into a 2D grid (TableGenerator pattern) ---
+            value_series = self._coerce_heatmap_value_series(
+                group_df[self.zaxis_variable_name]
+            )
+            work_df = pd.DataFrame(
+                {
+                    self.xaxis_variable_name: group_df[
+                        self.xaxis_variable_name
+                    ].to_numpy(),
+                    self.yaxis_variable_name: group_df[
+                        self.yaxis_variable_name
+                    ].to_numpy(),
+                    "__heatmap_value__": value_series.to_numpy(),
+                }
+            )
+
+            if (
+                verbose
+                and work_df.duplicated(
+                    subset=[self.xaxis_variable_name, self.yaxis_variable_name]
+                ).any()
+            ):
+                print(
+                    f"Note: duplicate (x, y) cells detected for group "
+                    f"{group_keys}; aggregating with '{aggregation}'."
+                )
+
+            grid = (
+                work_df.pivot_table(
+                    index=self.yaxis_variable_name,
+                    columns=self.xaxis_variable_name,
+                    values="__heatmap_value__",
+                    aggfunc=cast(Any, aggregation),
+                    observed=True,
+                )
+                .sort_index()
+                .sort_index(axis=1)
+            )
+
+            if grid.empty:
+                if verbose:
+                    print(
+                        f"Warning: empty heatmap grid for group {group_keys}; skipped."
+                    )
+                continue
+
+            values = grid.values.astype(float)
+
+            # --- Render ---
+            fig, ax = self.layout_manager.create_figure(figure_size)
+            ax.grid(False)  # cell grid lines look wrong over an image
+
+            # Colormap (copy so set_bad doesn't mutate the global instance)
+            base_cmap = plt.get_cmap(cmap) if isinstance(cmap, str) else cmap
+            cmap_obj = base_cmap.copy()
+            cmap_obj.set_bad(nan_color)
+
+            masked = np.ma.masked_invalid(values)
+
+            imshow_kwargs: Dict[str, Any] = {
+                "aspect": "auto",
+                "origin": "lower",
+                "cmap": cmap_obj,
+            }
+            if center is not None:
+                from matplotlib.colors import TwoSlopeNorm
+
+                imshow_kwargs["norm"] = TwoSlopeNorm(
+                    vcenter=center, vmin=vmin, vmax=vmax
+                )
+            else:
+                imshow_kwargs["vmin"] = vmin
+                imshow_kwargs["vmax"] = vmax
+
+            im = ax.imshow(masked, **imshow_kwargs)
+
+            # Categorical ticks formatted via the project's conventions
+            ax.set_xticks(range(len(grid.columns)))
+            ax.set_xticklabels(
+                [
+                    self._format_heatmap_tick(self.xaxis_variable_name, c)
+                    for c in grid.columns
+                ],
+                rotation=xtick_rotation,
+                ha="right" if xtick_rotation else "center",
+            )
+            ax.set_yticks(range(len(grid.index)))
+            ax.set_yticklabels(
+                [
+                    self._format_heatmap_tick(self.yaxis_variable_name, v)
+                    for v in grid.index
+                ]
+            )
+            ax.tick_params(axis="both", labelsize=font_size)
+
+            ax.set_xlabel(
+                constants.AXES_LABELS_BY_COLUMN_NAME.get(
+                    self.xaxis_variable_name, self.xaxis_variable_name
+                ),
+                fontsize=font_size + 2,
+            )
+            ax.set_ylabel(
+                constants.AXES_LABELS_BY_COLUMN_NAME.get(
+                    self.yaxis_variable_name, self.yaxis_variable_name
+                ),
+                fontsize=font_size + 2,
+            )
+
+            if invert_yaxis:
+                ax.invert_yaxis()
+
+            # Colourbar
+            cbar = fig.colorbar(im, ax=ax)
+            cbar.set_label(
+                colorbar_label
+                or constants.AXES_LABELS_BY_COLUMN_NAME.get(
+                    self.zaxis_variable_name, self.zaxis_variable_name
+                ),
+                fontsize=font_size + 2,
+            )
+            cbar.ax.tick_params(labelsize=font_size)
+
+            # Cell value annotations with auto-contrast text
+            if annotate_cells:
+                self._annotate_heatmap_cells(
+                    ax, values, im, annotation_format, font_size
+                )
+
+            # Highlight the optimal cell
+            if highlight_optimum:
+                self._highlight_heatmap_optimum(
+                    ax, values, highlight_optimum, optimum_color
+                )
+
+            # Title (reuse plot()'s builder; exclude the axis variables)
+            if include_plot_title:
+                title = self._construct_plot_title(
+                    metadata=metadata,
+                    custom_plot_title=custom_plot_title,
+                    custom_plot_titles_dict=None,
+                    title_from_columns=None,
+                    group_keys=(
+                        group_keys if isinstance(group_keys, tuple) else (group_keys,)
+                    ),
+                    grouping_variable=None,
+                    labeling_variable=None,
+                    leading_plot_substring=leading_plot_substring,
+                    excluded_from_title_list=list(excluded_from_title_list or [])
+                    + [self.xaxis_variable_name, self.yaxis_variable_name],
+                    title_number_format=title_number_format,
+                    title_exponential_format=title_exponential_format,
+                    title_wrapping_length=title_wrapping_length,
+                )
+                ax.set_title(
+                    title,
+                    fontsize=title_size,
+                    weight="bold" if bold_title else "normal",
+                )
+
+            # Margins (reuse style manager)
+            self.style_manager.apply_figure_margins(
+                fig,
+                left=left_margin_adjustment,
+                right=right_margin_adjustment,
+                bottom=bottom_margin_adjustment,
+                top=top_margin_adjustment,
+            )
+
+            # Save (reuse plot()'s saver; grouping_variable=None -> individual dir)
+            if save_figure and isinstance(fig, Figure):
+                self._save_plot(
+                    fig=fig,
+                    metadata=metadata,
+                    group_keys=group_keys,
+                    grouping_variable=None,
+                    file_format=file_format,
+                )
+
+        return self

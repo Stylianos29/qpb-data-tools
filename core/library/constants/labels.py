@@ -41,7 +41,7 @@ TITLE_LABELS_BY_COLUMN_NAME = {
     "Preconditioner_mass": "$am_{\\text{prec}}$",
     "Preconditioner_epsilon": "$\\epsilon_{\\text{prec}}$",
     "Preconditioner_max_iterations": "$N^{\\max}_{\\text{prec}}$",
-    "Preconditioner_MSCG_epsilon": "$\\epsilon^{\\text{prec}}_{MSCG}$",
+    "Preconditioner_MSCG_epsilon": "$\\left(\\epsilon^{\\text{prec}}_{MSCG}\\right)^2$",
     "KL_diagonal_order": "n",
     "Zolotarev_order": "n",
     "Neuberger_order": "n",
@@ -256,7 +256,7 @@ AXES_LABELS_BY_COLUMN_NAME = {
     "Preconditioner_mass": "$am_{\\text{prec}}$",
     "Preconditioner_epsilon": "$\\epsilon_{\\text{prec}}$",
     "Preconditioner_max_iterations": "$N^{\\max}_{\\text{prec}}$",
-    "Preconditioner_MSCG_epsilon": "$\\epsilon^{\\text{prec}}_{MSCG}$",
+    "Preconditioner_MSCG_epsilon": "$\\left(\\epsilon^{\\text{prec}}_{MSCG}\\right)^2$",
 }
 
 
@@ -282,6 +282,6 @@ LEGEND_LABELS_BY_COLUMN_NAME = {
     "Preconditioner_mass": "$am_{\\text{prec}}=$",
     "Preconditioner_epsilon": "$\\epsilon_{\\text{prec}}$=",
     "Preconditioner_max_iterations": "$N^{\\max}_{\\text{prec}}$=",
-    "Preconditioner_MSCG_epsilon": "$\\epsilon^{\\text{prec}}_{MSCG}=$",
+    "Preconditioner_MSCG_epsilon": "$\\left(\\epsilon^{\\text{prec}}_{MSCG}\\right)^2$",
     "Solver_type": "Solver type:",
 }
