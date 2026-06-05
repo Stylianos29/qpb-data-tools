@@ -1925,36 +1925,36 @@ class DataPlotter(DataFrameAnalyzer):
 
         return str(value)
 
-    def _annotate_heatmap_cells(
-        self,
-        ax: Axes,
-        values: np.ndarray,
-        im: Any,
-        annotation_format: str,
-        font_size: int,
-    ) -> None:
-        """
-        Write each cell's value in the centre of the cell, choosing black or
-        white text automatically for contrast against the cell colour.
-        """
-        n_rows, n_cols = values.shape
-        for i in range(n_rows):
-            for j in range(n_cols):
-                val = values[i, j]
-                if not np.isfinite(val):
-                    continue
-                rgba = im.cmap(im.norm(val))
-                luminance = 0.299 * rgba[0] + 0.587 * rgba[1] + 0.114 * rgba[2]
-                text_color = "white" if luminance < 0.5 else "black"
-                ax.text(
-                    j,
-                    i,
-                    format(val, annotation_format),
-                    ha="center",
-                    va="center",
-                    color=text_color,
-                    fontsize=max(6, font_size - 3),
-                )
+    # def _annotate_heatmap_cells(
+    #     self,
+    #     ax: Axes,
+    #     values: np.ndarray,
+    #     im: Any,
+    #     annotation_format: str,
+    #     font_size: int,
+    # ) -> None:
+    #     """
+    #     Write each cell's value in the centre of the cell, choosing black or
+    #     white text automatically for contrast against the cell colour.
+    #     """
+    #     n_rows, n_cols = values.shape
+    #     for i in range(n_rows):
+    #         for j in range(n_cols):
+    #             val = values[i, j]
+    #             if not np.isfinite(val):
+    #                 continue
+    #             rgba = im.cmap(im.norm(val))
+    #             luminance = 0.299 * rgba[0] + 0.587 * rgba[1] + 0.114 * rgba[2]
+    #             text_color = "white" if luminance < 0.5 else "black"
+    #             ax.text(
+    #                 j,
+    #                 i,
+    #                 format(val, annotation_format),
+    #                 ha="center",
+    #                 va="center",
+    #                 color=text_color,
+    #                 fontsize=max(6, font_size - 3),
+    #             )
 
     def _highlight_heatmap_optimum(
         self,
@@ -1995,6 +1995,77 @@ class DataPlotter(DataFrameAnalyzer):
             )
         )
 
+    def _annotate_heatmap_cells(
+        self,
+        ax: Axes,
+        values: np.ndarray,
+        im: Any,
+        annotation_format: str,
+        font_size: int,
+        annotation_values: Optional[np.ndarray] = None,
+        annotation_label: str = "",
+        annotation_value_format: str = ".0f",
+    ) -> None:
+        """
+        Write each cell's value in the centre of the cell, choosing
+        black or white text automatically for contrast against the cell
+        colour.
+
+        If annotation_values is provided (same shape and axes as
+        `values`), a second, smaller annotation line is drawn beneath
+        the primary value in each cell, prefixed with annotation_label.
+        """
+        n_rows, n_cols = values.shape
+        for i in range(n_rows):
+            for j in range(n_cols):
+                val = values[i, j]
+                if not np.isfinite(val):
+                    continue
+                rgba = im.cmap(im.norm(val))
+                luminance = 0.299 * rgba[0] + 0.587 * rgba[1] + 0.114 * rgba[2]
+                text_color = "white" if luminance < 0.5 else "black"
+
+                # Narrow directly so the checker knows it's not None when indexing
+                ann_val = None
+                if annotation_values is not None and np.isfinite(
+                    annotation_values[i, j]
+                ):
+                    ann_val = annotation_values[i, j]
+
+                if ann_val is not None:
+                    # Primary value, raised slightly above the centre
+                    ax.text(
+                        j,
+                        i + 0.18,
+                        format(val, annotation_format),
+                        ha="center",
+                        va="center",
+                        color=text_color,
+                        fontsize=max(6, font_size - 3),
+                    )
+                    # Secondary annotation, smaller, below the centre
+                    ax.text(
+                        j,
+                        i - 0.22,
+                        f"{annotation_label}"
+                        f"{format(ann_val, annotation_value_format)}",
+                        ha="center",
+                        va="center",
+                        color=text_color,
+                        fontsize=max(5, font_size - 5),
+                    )
+                else:
+                    # Single centred value (original behaviour)
+                    ax.text(
+                        j,
+                        i,
+                        format(val, annotation_format),
+                        ha="center",
+                        va="center",
+                        color=text_color,
+                        fontsize=max(6, font_size - 3),
+                    )
+
     def plot_heatmap(
         self,
         *,
@@ -2033,6 +2104,10 @@ class DataPlotter(DataFrameAnalyzer):
         title_number_format: str = ".2f",
         title_exponential_format: str = ".0e",
         title_wrapping_length: int = 80,
+        # Additional annotations
+        annotation_variable: Optional[str] = None,
+        annotation_label: str = "",
+        annotation_value_format: str = ".0f",
         # Output
         save_figure: bool = True,
         file_format: Optional[str] = None,
@@ -2063,10 +2138,14 @@ class DataPlotter(DataFrameAnalyzer):
         ):
             raise ValueError("Call set_heatmap_variables() before plot_heatmap().")
 
-        # Non-Optional local aliases (also narrow the type for the checker)
-        x_var = self.xaxis_variable_name
-        y_var = self.yaxis_variable_name
-        z_var = self.zaxis_variable_name
+        if (
+            annotation_variable is not None
+            and annotation_variable not in self.dataframe.columns
+        ):
+            raise ValueError(
+                f"annotation_variable '{annotation_variable}' is not a "
+                f"column in the DataFrame."
+            )
 
         # Facet by all multivalued tunable params except the axis variables.
         # Only filter out axis variables that are actually tunable params;
@@ -2131,6 +2210,34 @@ class DataPlotter(DataFrameAnalyzer):
                 continue
 
             values = grid.values.astype(float)
+
+            # Additional annotation values
+            annotation_values = None
+            if annotation_variable is not None:
+                ann_series = self._coerce_heatmap_value_series(
+                    group_df[annotation_variable]
+                )
+                ann_work = pd.DataFrame(
+                    {
+                        self.xaxis_variable_name: group_df[
+                            self.xaxis_variable_name
+                        ].to_numpy(),
+                        self.yaxis_variable_name: group_df[
+                            self.yaxis_variable_name
+                        ].to_numpy(),
+                        "__annotation_value__": ann_series.to_numpy(),
+                    }
+                )
+                ann_grid = ann_work.pivot_table(
+                    index=self.yaxis_variable_name,
+                    columns=self.xaxis_variable_name,
+                    values="__annotation_value__",
+                    aggfunc=cast(Any, aggregation),
+                    observed=True,
+                )
+                # Reindex onto the z-grid's exact axes so cells align 1:1
+                ann_grid = ann_grid.reindex(index=grid.index, columns=grid.columns)
+                annotation_values = ann_grid.values.astype(float)
 
             # --- Render ---
             fig, ax = self.layout_manager.create_figure(figure_size)
@@ -2209,7 +2316,14 @@ class DataPlotter(DataFrameAnalyzer):
             # Cell value annotations with auto-contrast text
             if annotate_cells:
                 self._annotate_heatmap_cells(
-                    ax, values, im, annotation_format, font_size
+                    ax,
+                    values,
+                    im,
+                    annotation_format,
+                    font_size,
+                    annotation_values=annotation_values,
+                    annotation_label=annotation_label,
+                    annotation_value_format=annotation_value_format,
                 )
 
             # Highlight the optimal cell
