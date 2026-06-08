@@ -6,6 +6,61 @@ import pandas as pd
 import numpy as np
 
 from .analyzer import DataFrameAnalyzer
+from ..constants import AXES_LABELS_BY_COLUMN_NAME
+
+
+def _latex_label(column_name: str) -> str:
+    """
+    Return a LaTeX-ready label for a column name.
+
+    Uses AXES_LABELS_BY_COLUMN_NAME (values are already LaTeX-formatted)
+    when available; otherwise falls back to the raw name with underscores
+    escaped so it is safe in LaTeX text mode.
+    """
+    if column_name in AXES_LABELS_BY_COLUMN_NAME:
+        return AXES_LABELS_BY_COLUMN_NAME[column_name]
+    return str(column_name).replace("_", r"\_")
+
+
+def _latex_table_environment(
+    column_spec: str,
+    header_cells: list,
+    body_rows: list,
+    caption: Optional[str] = None,
+    comment: Optional[str] = None,
+) -> str:
+    """
+    Wrap pre-formatted cells in a single table/tabular environment.
+
+    Args:
+        - column_spec (str): LaTeX column specification, e.g. 'c| c c c'.
+        - header_cells (list): Pre-formatted header cell strings.
+        - body_rows (list): List of rows, each a list of cell strings.
+        - caption (str, optional): Caption text (already LaTeX-ready).
+        - comment (str, optional): A LaTeX comment line placed above the
+          environment (e.g. to identify the group).
+
+    Returns:
+        str: The complete table environment as a string.
+    """
+    lines = []
+    if comment:
+        lines.append(f"% {comment}")
+    lines += [
+        r"\begin{table}[!ht]",
+        r"    \centering",
+        r"    \setlength{\tabcolsep}{10pt}",
+        rf"    \begin{{tabular}}{{{column_spec}}}",
+        "        " + " & ".join(header_cells) + r" \\",
+        r"        \hline",
+    ]
+    for row in body_rows:
+        lines.append("        " + " & ".join(row) + r" \\")
+    lines.append(r"    \end{tabular}")
+    if caption:
+        lines.append(rf"    \caption{{{caption}}}")
+    lines.append(r"\end{table}")
+    return "\n".join(lines)
 
 
 class TableGenerator(DataFrameAnalyzer):
@@ -394,8 +449,10 @@ class TableGenerator(DataFrameAnalyzer):
               directory.
             - filename (str, optional): Filename (without extension).
               Default: "summary_tables".
-            - file_format (str, optional): Format to save in ('md',
-              'txt', etc.). Default: 'md'.
+            - file_format (str, optional): Format to save in. 'md'/'txt'
+              produce Markdown tables; 'tex' produces LaTeX 'table'
+              environments (one per group) suitable for copy-pasting
+              into a LaTeX document. Default: 'md'.
 
         Returns:
             str: A single formatted string containing all tables.
@@ -418,6 +475,9 @@ class TableGenerator(DataFrameAnalyzer):
         for var in [value_variable, row_variable, column_variable]:
             if var is not None and var not in self.dataframe.columns:
                 raise ValueError(f"'{var}' is not a column in the DataFrame.")
+
+        # Render LaTeX instead of Markdown when exporting to a .tex file
+        latex = file_format == "tex"
 
         # Determine which tunable parameters to exclude from grouping
         filter_out_vars = set()
@@ -484,12 +544,30 @@ class TableGenerator(DataFrameAnalyzer):
             # Determine aggregation label for the table
             agg_label = aggregation.__name__ if callable(aggregation) else aggregation
 
-            table_lines = [f"#### Group {idx+1}:\n{clean_group_dict}", ""]
+            # In LaTeX mode the group identity is carried as a comment on
+            # each table environment; in Markdown it is a heading line.
+            group_comment = f"Group {idx+1}: {clean_group_dict}"
+            if latex:
+                table_lines = []
+            else:
+                table_lines = [f"#### Group {idx+1}:\n{clean_group_dict}", ""]
 
             # 0D case (no row or column variables)
             if row_variable is None and column_variable is None:
                 values = group_df[value_variable]
                 result = apply_aggregation(values, aggregation)
+                if latex:
+                    block = _latex_table_environment(
+                        column_spec="c| c",
+                        header_cells=[
+                            _latex_label(value_variable),
+                            agg_label,
+                        ],
+                        body_rows=[[format_result(result), ""]],
+                        comment=group_comment,
+                    )
+                    all_tables.append(block)
+                    continue
                 table_lines.append(
                     f"{value_variable} ({agg_label}): {format_result(result)}"
                 )
@@ -499,12 +577,31 @@ class TableGenerator(DataFrameAnalyzer):
                 grouping_var = (
                     row_variable if row_variable is not None else column_variable
                 )
+                assert grouping_var is not None  # guaranteed by the XOR condition above
                 group = group_df.groupby(grouping_var, observed=True)[value_variable]
 
                 result_dict = {}
                 for key, subset in group:
                     result = apply_aggregation(subset, aggregation)
                     result_dict[key] = result
+
+                if latex:
+                    header_cells = [
+                        _latex_label(grouping_var),
+                        f"{agg_label} of {_latex_label(value_variable)}",
+                    ]
+                    body_rows = [
+                        [str(k), format_result(result_dict[k])]
+                        for k in sorted(result_dict)
+                    ]
+                    block = _latex_table_environment(
+                        column_spec="c| c",
+                        header_cells=header_cells,
+                        body_rows=body_rows,
+                        comment=group_comment,
+                    )
+                    all_tables.append(block)
+                    continue
 
                 table_lines.append(f"{grouping_var} | {agg_label} of {value_variable}")
                 table_lines.append("-- | --")
@@ -521,6 +618,35 @@ class TableGenerator(DataFrameAnalyzer):
                 table_df = pivot_df.apply(
                     lambda x: apply_aggregation(x, aggregation)
                 ).unstack(fill_value="" if isinstance(aggregation, str) else None)
+
+                if latex:
+                    # First column is the row variable (rule after it),
+                    # then one centered column per column_variable value.
+                    column_spec = "c| " + " ".join("c" * len(table_df.columns))
+                    header_cells = [_latex_label(row_variable)] + [
+                        str(col) for col in table_df.columns
+                    ]
+                    body_rows = []
+                    for row_index, row in table_df.iterrows():
+                        body_rows.append(
+                            [str(row_index)]
+                            + [
+                                format_result(row[col]) if pd.notnull(row[col]) else ""
+                                for col in table_df.columns
+                            ]
+                        )
+                    block = _latex_table_environment(
+                        column_spec=column_spec,
+                        header_cells=header_cells,
+                        body_rows=body_rows,
+                        caption=(
+                            f"{_latex_label(value_variable)} by "
+                            f"{_latex_label(column_variable)}"
+                        ),
+                        comment=group_comment,
+                    )
+                    all_tables.append(block)
+                    continue
 
                 # Format the table
                 headers = [f"{row_variable} \\ {column_variable}"] + [
@@ -540,7 +666,10 @@ class TableGenerator(DataFrameAnalyzer):
             all_tables.append("\n".join(table_lines))
 
         # Join all tables into one string with separators
-        full_output = "\n\n---\n\n".join(all_tables)
+        if latex:
+            full_output = "\n\n".join(all_tables)
+        else:
+            full_output = "\n\n---\n\n".join(all_tables)
 
         # Save if requested
         if export_to_file:
