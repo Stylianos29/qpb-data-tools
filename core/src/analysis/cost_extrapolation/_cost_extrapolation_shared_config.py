@@ -29,6 +29,7 @@ GROUPING_PARAMETERS = [
 GROUPING_EXCLUDED_PARAMETERS = [
     "Configuration_label",  # Always average across configurations
     "Bare_mass",  # This is our independent variable
+    "Kappa_value",
 ]
 
 

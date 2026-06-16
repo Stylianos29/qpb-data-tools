@@ -378,6 +378,12 @@ def group_data_for_visualization(
         plateau_analyzer.list_of_tunable_parameter_names_from_dataframe
     )
 
+    # Parameters intentionally excluded from grouping (Bare_mass plus any
+    # parameter that covaries with it, e.g. Kappa_value = 1/(8 +
+    # 2*Bare_mass)). These vary within a group and are therefore
+    # aggregated away in the results CSV.
+    excluded_params = set(get_grouping_parameters())
+
     # Results should NOT have Bare_mass, but plateau SHOULD have it
     if "Bare_mass" in results_tunables:
         raise ValueError(
@@ -388,18 +394,27 @@ def group_data_for_visualization(
     if "Bare_mass" not in plateau_tunables:
         raise ValueError("Plateau CSV must contain 'Bare_mass' column")
 
-    # Check that all other tunable parameters match (excluding
-    # Bare_mass)
-    plateau_tunables_without_bare_mass = plateau_tunables - {"Bare_mass"}
-    param_diff = results_tunables.symmetric_difference(
-        plateau_tunables_without_bare_mass
+    # The parameters that actually define plateau groups are the
+    # multivalued tunable parameters minus the intentionally-excluded
+    # ones. Each of these MUST be present in the results CSV so that
+    # results rows can be matched to plateau groups (see STEP 4).
+    #
+    # Other tunable parameters are single-valued (constant) and play no
+    # role in grouping or matching, so a presence mismatch there is
+    # harmless and must not block visualization. This happens, for
+    # example, with a column such as 'Additional_text' that is constant
+    # (ignoring NaN) in the plateau CSV but is dropped from the results
+    # CSV because it is NaN for some rows in a group.
+    plateau_grouping_params = (
+        set(plateau_analyzer.list_of_multivalued_tunable_parameter_names)
+        - excluded_params
     )
+    missing_in_results = plateau_grouping_params - set(results_df.columns)
 
-    if param_diff:
+    if missing_in_results:
         raise ValueError(
-            f"Tunable parameter mismatch between results and plateau CSVs. "
-            f"Parameters only in results: {param_diff & results_tunables}. "
-            f"Parameters only in plateau: {param_diff & plateau_tunables_without_bare_mass}"
+            f"Plateau grouping parameter(s) {missing_in_results} are missing "
+            f"from the results CSV; cannot match results rows to plateau groups."
         )
 
     # === STEP 2: VALIDATE SINGLE-VALUED PARAMETERS ===
@@ -421,7 +436,7 @@ def group_data_for_visualization(
     # === STEP 3: GROUP PLATEAU DATA ===
     grouping_excluded_params = (
         get_grouping_parameters()
-    )  # ["Bare_mass", "MPI_geometry"]
+    )  # ["Bare_mass", "MPI_geometry", "Kappa_value"]
 
     # Filter to only parameters that are actually multivalued in plateau
     # data

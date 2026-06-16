@@ -10,7 +10,7 @@ and pion effective mass critical mass calculations.
 # CONSTANTS
 # =============================================================================
 
-GROUPING_EXCLUDED_PARAMETERS = ["Bare_mass", "MPI_geometry"]
+GROUPING_EXCLUDED_PARAMETERS = ["Bare_mass", "MPI_geometry", "Kappa_value"]
 
 # Data filtering parameters
 FILTERING_PARAMETERS = {
