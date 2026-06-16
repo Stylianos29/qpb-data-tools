@@ -246,8 +246,8 @@ FILE_CONTENTS_SCALAR_PATTERNS_DICTIONARY = {
     },
     # Only for invert programs
     "Number_of_spinors": {
-        "line_identifier": "CG done,",
-        "regex_pattern": r"CG done, (\d+) vectors",
+        "line_identifier": " done,",
+        "regex_pattern": r" done, (\d+) vectors",
         "type": int,
     },
     "Total_calculation_time": {
@@ -532,4 +532,5 @@ MAIN_PROGRAM_TYPE_MAPPING = {
     "||[D^+D, DD^+]||": "normality",
     "GW diff": "ginsparg_wilson_relation",
     "CG done": "invert",
+    "BiCGStab done": "invert",
 }
