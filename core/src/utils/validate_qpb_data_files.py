@@ -539,10 +539,9 @@ def main(
 
     # Lists to store categorized files based on containing specific flag
     # phrases
-    list_of_invert_qpb_log_file_paths = []  # Containing "CG done"
+    list_of_invert_qpb_log_file_paths = []  # Containing "CG done" or "BiCGStab done"
     list_of_non_invert_qpb_log_file_paths = []  # Containing "per stochastic source"
-    # Files lacking "CG done" or "per stochastic source" are marked as
-    # corrupted
+    # Files lacking any of the above phrases are marked as corrupted
     list_of_corrupted_qpb_log_file_paths = []
 
     # Check each log file for required phrases
@@ -552,7 +551,7 @@ def main(
                 content = file.read()
 
                 # Check for phrases in file content
-                if "CG done" in content:
+                if "CG done" in content or "BiCGStab done" in content:
                     list_of_invert_qpb_log_file_paths.append(log_file_path)
                 elif "per stochastic source" in content:
                     list_of_non_invert_qpb_log_file_paths.append(log_file_path)
