@@ -2071,6 +2071,7 @@ class DataPlotter(DataFrameAnalyzer):
         *,
         # Data handling
         aggregation: str = "mean",
+        excluded_from_grouping_list: Optional[List[str]] = None,
         # Colour mapping
         cmap: Union[str, Any] = "viridis",
         center: Optional[float] = None,
@@ -2122,9 +2123,20 @@ class DataPlotter(DataFrameAnalyzer):
         of two parameters that minimises/maximises a quantity.
 
         Faceting follows the same logic as plot(): the data is grouped
-        by every multivalued tunable parameter EXCEPT the axis
-        variables, and one figure is produced per group. There is
-        intentionally no grouping_variable for heatmaps.
+        by every multivalued tunable parameter EXCEPT the axis variables
+        (and any parameters listed in excluded_from_grouping_list), and
+        one figure is produced per group. There is intentionally no
+        grouping_variable for heatmaps.
+
+        Key Parameters:
+        ---------------
+        excluded_from_grouping_list : list of str, optional
+            Additional multivalued tunable parameters to drop from
+            faceting, mirroring plot()'s parameter of the same name.
+            Each excluded parameter's values collapse onto shared (x, y)
+            cells and are combined via `aggregation` rather than
+            producing a separate heatmap per value. Names must be
+            multivalued tunable parameters.
 
         Returns:
         --------
@@ -2155,8 +2167,16 @@ class DataPlotter(DataFrameAnalyzer):
             for var in (self.xaxis_variable_name, self.yaxis_variable_name)
             if var in self.list_of_multivalued_tunable_parameter_names
         ]
+        # Additional parameters the user wants dropped from faceting (mirrors
+        # plot()'s excluded_from_grouping_list). Their values collapse onto
+        # shared (x, y) cells and are combined via `aggregation`, instead of
+        # producing a separate heatmap per value. Invalid names are rejected
+        # downstream by group_by_multivalued_tunable_parameters.
+        filter_out_parameters = list(
+            dict.fromkeys(axis_filter + list(excluded_from_grouping_list or []))
+        )
         grouped = self.group_by_multivalued_tunable_parameters(
-            filter_out_parameters_list=axis_filter,
+            filter_out_parameters_list=filter_out_parameters,
             verbose=verbose,
         )
 
