@@ -252,6 +252,7 @@ AXES_LABELS_BY_COLUMN_NAME = {
     "Maximum_eigenvalue_squared": "$\\lambda_{\\text{max}}^2$",
     "Condition_number": "$\\kappa_{\\mathbb{X}^2}$",
     "KL_scaling_factor": "$\\mu$",
+    "Rho_value": "$\\rho$",
     "Preconditioner_order": "$n_{\\text{prec}}$",
     "Preconditioner_mass": "$am_{\\text{prec}}$",
     "Preconditioner_epsilon": "$\\epsilon_{\\text{prec}}$",
