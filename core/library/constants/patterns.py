@@ -141,8 +141,12 @@ FILENAME_SCALAR_PATTERNS_DICTIONARY = {
         "pattern": r"mPrec(?P<Preconditioner_mass>-?\d+p?\d*)",
         "type": float,
     },
-    "Preconditioner_epsilon": {
-        "pattern": r"EpsPrec(?P<Preconditioner_epsilon>\d*[\.p]?\d+e[+-]\d+|\d+e[+-]\d+)",
+    "Preconditioner_solver_epsilon": {
+        "pattern": r"EpsPrecSolver(?P<Preconditioner_solver_epsilon>\d*[\.p]?\d+e[+-]\d+|\d+e[+-]\d+)",
+        "type": float,
+    },
+    "Preconditioner_MSCG_epsilon": {
+        "pattern": r"EpsPrecMSCG(?P<Preconditioner_MSCG_epsilon>\d*[\.p]?\d+e[+-]\d+|\d+e[+-]\d+)",
         "type": float,
     },
     "Preconditioner_max_iterations": {
@@ -417,8 +421,13 @@ FILE_CONTENTS_SCALAR_PATTERNS_DICTIONARY = {
         "regex_pattern": r"(-?\d+(\.\d+)?)",
         "type": float,
     },
-    "Preconditioner_epsilon": {
-        "line_identifier": "Preconditioner epsilon =",
+    "Preconditioner_solver_epsilon": {
+        "line_identifier": "Preconditioner solver epsilon =",
+        "regex_pattern": r"(\d+(?:\.\d+)?e[+-]\d+)",
+        "type": float,
+    },
+    "Preconditioner_MSCG_epsilon": {
+        "line_identifier": "Preconditioner MSCG epsilon =",
         "regex_pattern": r"(\d+(?:\.\d+)?e[+-]\d+)",
         "type": float,
     },
