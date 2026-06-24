@@ -93,7 +93,6 @@ PARAMETERS_WITH_EXPONENTIAL_FORMAT = [
     "MSCG_epsilon",
     "Preconditioner_solver_epsilon",
     "Preconditioner_MSCG_epsilon",
-    "Preconditioner_MSCG_epsilon",
 ]
 
 PARAMETERS_OF_INTEGER_VALUE = [
