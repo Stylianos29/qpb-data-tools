@@ -51,12 +51,14 @@ TUNABLE_PARAMETER_NAMES_LIST = [
     # =========================================================================
     # PRECONDITIONER PARAMETERS
     # =========================================================================
-    # LEGACY — see patterns.py for details
-    "Preconditioner_order",  # Order of CG preconditioner expansion
-    "Preconditioner_mass",  # Mass used in CG preconditioner
-    "Preconditioner_solver_epsilon",  # Preconditioner solver relative-residual tolerance
+    # LEGACY (pre-cascaded preconditioner) — retained only so historical
+    # KL-invert datasets remain parseable; see patterns.py.
+    "Preconditioner_order",  # (legacy) order now fixed to n-1 by qpb
+    "Preconditioner_mass",  # (legacy) per-level mass shift, unused by qpb
+    # Current preconditioner-solver controls (KL-invert and Zolotarev-invert)
+    "Preconditioner_solver_epsilon",  # solver relative-residual tolerance
     "Preconditioner_MSCG_epsilon",  # MSCG tolerance inside the preconditioner solver
-    "Preconditioner_max_iterations",  # Max iterations for preconditioner CG
+    "Preconditioner_max_iterations",  # preconditioner solver iteration cap
     # =========================================================================
     # Stochastic Estimation Parameters
     # =========================================================================

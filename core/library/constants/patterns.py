@@ -153,10 +153,6 @@ FILENAME_SCALAR_PATTERNS_DICTIONARY = {
         "pattern": r"PrecMaxIters(?P<Preconditioner_max_iterations>\d+)",
         "type": int,
     },
-    "Preconditioner_MSCG_epsilon": {
-        "pattern": r"EpsPrecMSCG(?P<Preconditioner_MSCG_epsilon>\d*[\.p]?\d+e[+-]\d+|\d+e[+-]\d+)",
-        "type": float,
-    },
 }
 
 
@@ -435,11 +431,6 @@ FILE_CONTENTS_SCALAR_PATTERNS_DICTIONARY = {
         "line_identifier": "Preconditioner max iters =",
         "regex_pattern": r"(\d+)",
         "type": int,
-    },
-    "Preconditioner_MSCG_epsilon": {
-        "line_identifier": "Preconditioner MSCG epsilon =",
-        "regex_pattern": r"(\d+(?:\.\d+)?e[+-]\d+)",
-        "type": float,
     },
 }
 
