@@ -842,7 +842,7 @@ def create_critical_mass_plot(
         )
 
     # Configure axes with new x-axis label
-    ax.set_xlabel("$m$", fontsize=styling["axis_label_font_size"])
+    ax.set_xlabel("$am$", fontsize=styling["axis_label_font_size"])
     ax.set_ylabel(y_label, fontsize=styling["axis_label_font_size"])
 
     # Add grid
