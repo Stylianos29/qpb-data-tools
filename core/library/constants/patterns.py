@@ -298,6 +298,11 @@ FILE_CONTENTS_SCALAR_PATTERNS_DICTIONARY = {
         "regex_pattern": r"(\d+)",
         "type": int,
     },
+    "Leftmost_real_kernel_eigenvalue": {
+        "line_identifier": "delta (leftmost real kernel mode)",
+        "regex_pattern": r"(\d+(\.\d+)?)",
+        "type": float,
+    },
     # =========================================================================
     # APPROXIMATION ORDER PARAMETERS
     # =========================================================================
