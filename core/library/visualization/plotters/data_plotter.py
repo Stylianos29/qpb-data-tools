@@ -1,5 +1,5 @@
 import os
-from typing import Optional, Callable, Dict, List, Union, Any, Tuple, cast
+from typing import Optional, Callable, Dict, List, Sequence, Union, Any, Tuple, cast
 import math
 
 import numpy as np
@@ -1847,7 +1847,7 @@ class DataPlotter(DataFrameAnalyzer):
 
         # value variable must be numeric (or coercible from tuple/gvar)
         try:
-            self._coerce_heatmap_value_series(self.dataframe[value_variable])
+            self._coerce_numeric_value_series(self.dataframe[value_variable])
         except ValueError as exc:
             raise ValueError(
                 f"Heatmap value variable '{value_variable}' must be numeric. {exc}"
@@ -1863,13 +1863,15 @@ class DataPlotter(DataFrameAnalyzer):
             self.plots_base_name, clear_existing=clear_existing
         )
 
-    def _coerce_heatmap_value_series(self, series: pd.Series) -> pd.Series:
+    def _coerce_numeric_value_series(self, series: pd.Series) -> pd.Series:
         """
-        Return a numeric float Series for the heatmap value variable.
+        Return a numeric float Series for a value-bearing column.
 
         Accepts plain numeric columns, (value, error) tuple/2D-array
         columns (the mean is taken), and gvar object columns. Raises
         ValueError if the column cannot be reduced to numbers.
+
+        Shared by the heatmap and histogram paths.
         """
         if pd.api.types.is_numeric_dtype(series):
             return series.astype(float)
@@ -2184,7 +2186,7 @@ class DataPlotter(DataFrameAnalyzer):
             metadata = self._extract_group_metadata(group_keys, group_df)
 
             # --- Reshape into a 2D grid (TableGenerator pattern) ---
-            value_series = self._coerce_heatmap_value_series(
+            value_series = self._coerce_numeric_value_series(
                 group_df[self.zaxis_variable_name]
             )
             work_df = pd.DataFrame(
@@ -2234,7 +2236,7 @@ class DataPlotter(DataFrameAnalyzer):
             # Additional annotation values
             annotation_values = None
             if annotation_variable is not None:
-                ann_series = self._coerce_heatmap_value_series(
+                ann_series = self._coerce_numeric_value_series(
                     group_df[annotation_variable]
                 )
                 ann_work = pd.DataFrame(
@@ -2394,6 +2396,450 @@ class DataPlotter(DataFrameAnalyzer):
                     group_keys=group_keys,
                     grouping_variable=None,
                     file_format=file_format,
+                )
+
+        return self
+
+    def set_histogram_variable(
+        self, variable: str, clear_existing: bool = False
+    ) -> None:
+        """
+        Set the variable whose distribution will be binned.
+
+        Unlike set_plot_variables(), a histogram needs a SINGLE
+        variable: the quantity to bin. The y-axis is derived from the
+        data (counts or density), so it is not a DataFrame column.
+
+        Parameters:
+        -----------
+        variable : str
+            Column name of the quantity to bin, holding one value per
+            DataFrame row. May contain plain numbers, (value, error)
+            tuples, or gvar objects; the latter two are reduced to their
+            means before binning.
+        clear_existing : bool, optional
+            Whether to clear the existing plot subdirectory.
+
+        Raises:
+        -------
+        ValueError
+            If the column is missing or cannot be reduced to numbers.
+        """
+        if variable not in self.dataframe.columns:
+            raise ValueError(f"'{variable}' is not a column in the DataFrame.")
+
+        try:
+            self._coerce_numeric_value_series(self.dataframe[variable])
+        except ValueError as exc:
+            raise ValueError(
+                f"Histogram variable '{variable}' must be numeric. {exc}"
+            ) from exc
+
+        self.xaxis_variable_name = variable
+        # A histogram's y-axis is a derived count/density rather than a
+        # column. Leaving it None also makes plot() correctly refuse to
+        # run until set_plot_variables() is called again.
+        self.yaxis_variable_name = None
+        self.zaxis_variable_name = None
+        self.plots_base_name = f"{variable}_histogram"
+
+        # Prepare subdirectory using file manager (reused by _save_plot)
+        self.individual_plots_subdirectory = self.file_manager.prepare_subdirectory(
+            self.plots_base_name, clear_existing=clear_existing
+        )
+
+    def _histogram_series_values(self, series: pd.Series) -> np.ndarray:
+        """Reduce a column to the finite float values that get binned."""
+        values = self._coerce_numeric_value_series(series).to_numpy(dtype=float)
+        return values[np.isfinite(values)]
+
+    def _annotate_histogram_statistics(
+        self,
+        ax: Axes,
+        series_statistics: List[Tuple[Optional[str], np.ndarray]],
+        location: str,
+        number_format: str,
+        font_size: int,
+        bin_count: int,
+    ) -> None:
+        """
+        Draw a summary-statistics box reporting bins, N, mean and std.
+
+        A single unlabelled series gets one line per statistic; several
+        labelled series get one compact line each, so that the box does
+        not outgrow the axes. Bin count is a property of the figure (all
+        overlaid series share one set of edges), so it appears once,
+        above the per-series lines.
+        """
+        # Reuse the fit label's placement vocabulary so that
+        # statistics_location and fit_label_location behave alike.
+        position, alignment = self.curve_fitter.label_positions.get(
+            location, ((0.95, 0.95), ("right", "top"))
+        )
+
+        def summarize(values: np.ndarray) -> Tuple[str, str, str]:
+            mean = format(float(np.mean(values)), number_format)
+            # ddof=1 is undefined for a single sample.
+            std = (
+                format(float(np.std(values, ddof=1)), number_format)
+                if values.size > 1
+                else "n/a"
+            )
+            return str(values.size), mean, std
+
+        lines = [f"bins = {bin_count}"]
+        if len(series_statistics) == 1 and series_statistics[0][0] is None:
+            count, mean, std = summarize(series_statistics[0][1])
+            lines += [f"N = {count}", f"mean = {mean}", f"std = {std}"]
+        else:
+            for label, values in series_statistics:
+                count, mean, std = summarize(values)
+                lines.append(f"{label}: N={count}, mean={mean}, std={std}")
+
+        ax.text(
+            *position,
+            "\n".join(lines),
+            transform=ax.transAxes,
+            fontsize=font_size,
+            verticalalignment=alignment[1],
+            horizontalalignment=alignment[0],
+            # Place the box by its corner, but keep the lines inside it
+            # left-aligned so the statistic names line up.
+            multialignment="left",
+            bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
+        )
+
+    def plot_histogram(
+        self,
+        *,
+        # Grouping and data organization
+        grouping_variable: Optional[Union[str, List[str]]] = None,
+        excluded_from_grouping_list: Optional[List[str]] = None,
+        labeling_variable: Optional[Union[str, List[str]]] = None,
+        sorting_variable: Optional[str] = None,
+        sort_ascending: Optional[bool] = None,
+        # Binning
+        bins: Union[int, str, Sequence[float]] = "auto",
+        bin_range: Optional[Tuple[float, float]] = None,
+        density: bool = False,
+        cumulative: bool = False,
+        # Bar rendering
+        histogram_type: str = "bar",
+        stacked: bool = False,
+        alpha: float = 0.75,
+        edge_color: Optional[str] = "black",
+        line_width: float = 1.0,
+        # Styling
+        marker_color_map: Optional[Dict[Any, Tuple[str, str]]] = None,
+        color_index_shift: int = 0,
+        # Figure and layout
+        figure_size: Tuple[float, float] = (7, 5),
+        font_size: int = 13,
+        left_margin_adjustment: float = 0.15,
+        right_margin_adjustment: float = 0.94,
+        bottom_margin_adjustment: float = 0.12,
+        top_margin_adjustment: float = 0.92,
+        # Axes configuration
+        xaxis_label: Optional[str] = None,
+        yaxis_label: Optional[str] = None,
+        show_xaxis_label: bool = True,
+        show_yaxis_label: bool = True,
+        xaxis_log_scale: bool = False,
+        yaxis_log_scale: bool = False,
+        xlim: Optional[Tuple[float, float]] = None,
+        ylim: Optional[Tuple[float, float]] = None,
+        invert_xaxis: bool = False,
+        yaxis_start_at_zero: bool = True,
+        customization_function: Optional[Callable[[Axes], None]] = None,
+        # Legend
+        include_legend: bool = True,
+        legend_location: str = "upper left",
+        legend_columns: int = 1,
+        include_legend_title: bool = True,
+        legend_number_format: str = ".2f",
+        # Titles (reuses plot()'s title machinery)
+        include_plot_title: bool = False,
+        custom_plot_title: Optional[str] = None,
+        leading_plot_substring: Optional[str] = None,
+        excluded_from_title_list: Optional[List[str]] = None,
+        title_size: int = 15,
+        bold_title: bool = False,
+        title_number_format: str = ".2f",
+        title_exponential_format: str = ".0e",
+        title_wrapping_length: int = 80,
+        # Summary statistics box
+        show_statistics: bool = True,
+        statistics_location: str = "top right",
+        statistics_format: str = ".4g",
+        statistics_fontsize: int = 9,
+        # Output control
+        save_figure: bool = True,
+        file_format: Optional[str] = None,
+        include_combined_prefix: bool = False,
+        verbose: bool = True,
+    ) -> "DataPlotter":
+        """
+        Create one histogram figure per parameter combination.
+
+        A histogram visualises the distribution of a single quantity
+        across the rows of the DataFrame — for example how a
+        computational cost or an extracted mass scatters over gauge
+        configurations.
+
+        Faceting follows the same logic as plot(): the data is grouped
+        by every multivalued tunable parameter EXCEPT the binned
+        variable and the grouping variable (and any parameters listed in
+        excluded_from_grouping_list), producing one figure per group.
+        Within a figure, an optional grouping_variable overlays one
+        histogram per group value, sharing a single set of bin edges so
+        the distributions remain directly comparable.
+
+        Key Parameters:
+        ---------------
+        grouping_variable : str or List[str], optional
+            Overlays one histogram per value of this variable within
+            each figure. Must be a multivalued tunable parameter.
+        excluded_from_grouping_list : List[str], optional
+            Parameters to drop from faceting, so their values are pooled
+            into the same histogram instead of splitting it across
+            figures. This is normally where the row-identity parameter
+            belongs: leaving 'Configuration_label' in the faceting set
+            yields one figure per configuration, each holding a single
+            count, which is rarely what a histogram is for. The verbose
+            output lists the parameters actually being faceted.
+        bins : int, str or sequence, optional
+            Passed to numpy.histogram_bin_edges. Accepts a bin count, a
+            rule name such as "auto", "fd" or "sturges", or explicit bin
+            edges. Default "auto". Edges are derived ONCE from the
+            pooled data of a figure, so overlaid series stay aligned.
+        bin_range : tuple of (float, float), optional
+            Lower and upper range of the bins. Values outside it are
+            ignored when deriving the edges.
+        density : bool, optional
+            Normalise to a probability density instead of raw counts.
+            Also switches the default y-axis label to "Density".
+        histogram_type : str, optional
+            Matplotlib histtype: "bar" (default), "barstacked", "step"
+            or "stepfilled". "step" and "stepfilled" usually read better
+            than "bar" when several series are overlaid.
+        stacked : bool, optional
+            Stack the overlaid series instead of drawing them
+            side-by-side/overlapping. Default False.
+        edge_color : str, optional
+            Outline colour for filled bars. Ignored for
+            histogram_type="step", where the outline carries the series
+            colour. Default "black".
+        show_statistics : bool, optional
+            Draw a box reporting bin count, N, mean and standard
+            deviation — one line per statistic for a single series, one
+            line per series (plus the shared bin count) when grouped.
+            Default True.
+        statistics_location : str, optional
+            Placement of that box, using the same vocabulary as
+            fit_label_location ("top left", "top right", "bottom left",
+            "bottom right", "center"). Default "top right".
+
+        Returns:
+        --------
+        DataPlotter
+            Self for method chaining
+        """
+        if self.xaxis_variable_name is None:
+            raise ValueError("Call set_histogram_variable() before plot_histogram().")
+
+        histogram_variable = self.xaxis_variable_name
+
+        # Facet exactly as plot() does: the binned variable and the
+        # overlay variable must not also drive the outer grouping.
+        grouping_config = self._prepare_grouping_configuration(
+            grouping_variable, excluded_from_grouping_list, None
+        )
+        grouped = self.group_by_multivalued_tunable_parameters(
+            filter_out_parameters_list=grouping_config["excluded"],
+            verbose=verbose,
+        )
+
+        # Histograms cannot seed insets (the inset manager replays
+        # plot(), which needs both axis variables), so clear rather than
+        # populate these to keep add_inset()'s guard honest.
+        self._last_plot_figures = {}
+        self._last_plot_paths = {}
+
+        for group_keys, group_df in grouped:
+            metadata = self._extract_group_metadata(group_keys, group_df)
+
+            # --- Collect one value array per overlaid series ---
+            series: List[Tuple[Optional[str], np.ndarray, str]] = []
+
+            if grouping_variable:
+                unique_group_values = self._get_sorted_group_values(
+                    group_df, grouping_variable, sorting_variable, sort_ascending
+                )
+                style_map = self.style_manager.generate_marker_color_map(
+                    unique_group_values,
+                    custom_map=marker_color_map,
+                    index_shift=color_index_shift,
+                )
+
+                for value in unique_group_values:
+                    subgroup = self._extract_subgroup(
+                        group_df, grouping_variable, value
+                    )
+                    values = self._histogram_series_values(subgroup[histogram_variable])
+                    if values.size == 0:
+                        if verbose:
+                            print(
+                                f"Warning: no finite '{histogram_variable}' "
+                                f"values for {value}; series skipped."
+                            )
+                        continue
+
+                    if labeling_variable:
+                        label = self._generate_data_group_label(
+                            subgroup,
+                            labeling_variable,
+                            legend_number_format,
+                            constants,
+                        )
+                    else:
+                        label = self._format_group_value_as_label(
+                            value, grouping_variable
+                        )
+
+                    _, color = style_map[value]
+                    series.append((label, values, color))
+            else:
+                values = self._histogram_series_values(group_df[histogram_variable])
+                if values.size:
+                    series.append((None, values, "blue"))
+
+            if not series:
+                if verbose:
+                    print(
+                        f"Warning: no finite '{histogram_variable}' values for "
+                        f"group {group_keys}; figure skipped."
+                    )
+                continue
+
+            # --- Shared bin edges keep overlaid series comparable ---
+            pooled = np.concatenate([values for _, values, _ in series])
+            try:
+                bin_edges = np.histogram_bin_edges(
+                    pooled, bins=cast(Any, bins), range=bin_range
+                )
+            except (ValueError, MemoryError) as exc:
+                raise ValueError(
+                    f"Could not derive bin edges for '{histogram_variable}' "
+                    f"(group {group_keys}) from bins={bins!r}: {exc}"
+                ) from exc
+
+            # --- Render ---
+            fig, ax = self.layout_manager.create_figure(figure_size)
+
+            hist_kwargs: Dict[str, Any] = {
+                "bins": bin_edges,
+                "density": density,
+                "cumulative": cumulative,
+                "histtype": histogram_type,
+                "stacked": stacked,
+                "alpha": alpha,
+                "color": [color for _, _, color in series],
+                "linewidth": line_width,
+            }
+            # For step outlines the edge colour IS the series colour;
+            # overriding it would collapse every series onto one colour.
+            if edge_color is not None and histogram_type != "step":
+                hist_kwargs["edgecolor"] = edge_color
+            if any(label is not None for label, _, _ in series):
+                hist_kwargs["label"] = [label for label, _, _ in series]
+
+            ax.hist([values for _, values, _ in series], **hist_kwargs)
+
+            self.layout_manager.configure_existing_axes(
+                ax=ax,
+                x_variable=histogram_variable,
+                # The y-axis is derived, so it has no column to look up;
+                # an explicit label is always supplied instead.
+                y_variable="",
+                font_size=font_size,
+                xaxis_label=xaxis_label,
+                yaxis_label=yaxis_label or ("Density" if density else "Frequency"),
+                show_xaxis_label=show_xaxis_label,
+                show_yaxis_label=show_yaxis_label,
+                xaxis_log_scale=xaxis_log_scale,
+                yaxis_log_scale=yaxis_log_scale,
+                xlim=xlim,
+                ylim=ylim,
+                xaxis_start_at_zero=False,
+                yaxis_start_at_zero=yaxis_start_at_zero,
+                invert_xaxis=invert_xaxis,
+                invert_yaxis=False,
+                apply_custom_function=customization_function,
+            )
+
+            if grouping_variable and include_legend:
+                self.style_manager.configure_legend(
+                    ax=ax,
+                    include_legend=include_legend,
+                    legend_location=legend_location,
+                    legend_columns=legend_columns,
+                    include_legend_title=include_legend_title,
+                    font_size=font_size,
+                    grouping_variable=grouping_variable,
+                    labeling_variable=labeling_variable,
+                )
+
+            if show_statistics:
+                self._annotate_histogram_statistics(
+                    ax=ax,
+                    series_statistics=[(label, values) for label, values, _ in series],
+                    location=statistics_location,
+                    number_format=statistics_format,
+                    font_size=statistics_fontsize,
+                    bin_count=bin_edges.size - 1,
+                )
+
+            # Title (reuse plot()'s builder; exclude the binned variable)
+            if include_plot_title:
+                title = self._construct_plot_title(
+                    metadata=metadata,
+                    custom_plot_title=custom_plot_title,
+                    custom_plot_titles_dict=None,
+                    title_from_columns=None,
+                    group_keys=(
+                        group_keys if isinstance(group_keys, tuple) else (group_keys,)
+                    ),
+                    grouping_variable=grouping_variable,
+                    labeling_variable=labeling_variable,
+                    leading_plot_substring=leading_plot_substring,
+                    excluded_from_title_list=list(excluded_from_title_list or [])
+                    + [histogram_variable],
+                    title_number_format=title_number_format,
+                    title_exponential_format=title_exponential_format,
+                    title_wrapping_length=title_wrapping_length,
+                )
+                ax.set_title(
+                    title,
+                    fontsize=title_size,
+                    weight="bold" if bold_title else "normal",
+                )
+
+            self.style_manager.apply_figure_margins(
+                fig,
+                left=left_margin_adjustment,
+                right=right_margin_adjustment,
+                bottom=bottom_margin_adjustment,
+                top=top_margin_adjustment,
+            )
+
+            if save_figure and isinstance(fig, Figure):
+                self._save_plot(
+                    fig=fig,
+                    metadata=metadata,
+                    group_keys=group_keys,
+                    grouping_variable=grouping_variable,
+                    file_format=file_format,
+                    include_combined_prefix=include_combined_prefix,
                 )
 
         return self
