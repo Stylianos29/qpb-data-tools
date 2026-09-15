@@ -205,6 +205,7 @@ class DataPlotter(DataFrameAnalyzer):
         legend_location: str = "upper left",
         legend_columns: int = 1,
         include_legend_title: bool = True,
+        custom_legend_title: Optional[str] = None,
         legend_number_format: str = ".2f",
         # Titles
         include_plot_title: bool = False,
@@ -286,6 +287,10 @@ class DataPlotter(DataFrameAnalyzer):
         fit_min_data_points : int, optional
             Minimum number of data points required for curve fitting. If
             None, uses function-specific defaults from CurveFitter.
+        custom_legend_title : str, optional
+            Custom title for the legend box. If None, the title is
+            auto-generated from labeling_variable or grouping_variable.
+            Ignored if include_legend_title is False.
         per_figure_overrides : Callable[[dict], dict | None], optional
             Function that customizes plot kwargs per figure. Called once
             per outer-grouping figure, receives that figure's metadata
@@ -378,6 +383,7 @@ class DataPlotter(DataFrameAnalyzer):
             "legend_location": legend_location,
             "legend_columns": legend_columns,
             "include_legend_title": include_legend_title,
+            "custom_legend_title": custom_legend_title,
             "legend_number_format": legend_number_format,
             # Titles
             "include_plot_title": include_plot_title,
@@ -477,6 +483,7 @@ class DataPlotter(DataFrameAnalyzer):
             legend_location = eff["legend_location"]
             legend_columns = eff["legend_columns"]
             include_legend_title = eff["include_legend_title"]
+            custom_legend_title = eff["custom_legend_title"]
             legend_number_format = eff["legend_number_format"]
             # Titles
             include_plot_title = eff["include_plot_title"]
@@ -659,6 +666,7 @@ class DataPlotter(DataFrameAnalyzer):
                     legend_location=legend_location,
                     legend_columns=legend_columns,
                     include_legend_title=include_legend_title,
+                    legend_title=custom_legend_title,
                     font_size=font_size,
                     grouping_variable=grouping_variable,
                     labeling_variable=labeling_variable,
