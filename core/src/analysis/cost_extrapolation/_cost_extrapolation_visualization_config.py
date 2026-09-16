@@ -211,6 +211,7 @@ ANALYSIS_CONFIG = {
 # Parameters to exclude from plot titles
 TITLE_EXCLUDED_PARAMETERS = [
     "APE_alpha",
+    "APE_iterations",
     "Main_program_type",
     "Maximum_Lanczos_iterations",
     "Number_of_spinors",
@@ -221,6 +222,11 @@ TITLE_EXCLUDED_PARAMETERS = [
     "Threads_per_process",
     "Delta_Max",
     "Delta_Min",
+    "Clover_coefficient",
+    "KL_scaling_factor",
+    "QCD_beta_value",
+    "Rho_value",
+    "Solver_type",
 ]
 
 # =============================================================================

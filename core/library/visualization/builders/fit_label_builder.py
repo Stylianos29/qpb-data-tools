@@ -276,6 +276,6 @@ def format_shifted_power_law_equation(
 
     offset = format_signed_term(c, c_error, fallback_format=fallback_format)
 
-    equation = f"{numerator}/( {variable} {shift_operator} {shift_magnitude} ) {offset}"
+    equation = f"{numerator} / ( {variable} {shift_operator} {shift_magnitude} ) {offset}"
 
     return f"{lhs} = {equation}" if lhs else equation

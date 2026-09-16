@@ -41,6 +41,7 @@ from src.analysis.critical_mass_extrapolation._critical_mass_visualization_confi
     get_filename_base_name,
     get_filename_custom_prefix,
     get_analysis_config,
+    should_show_quadratic_fit,
 )
 
 
@@ -692,9 +693,11 @@ def create_critical_mass_plot(
     # QUADRATIC FIT (if available)
     #############
 
-    # Check if quadratic fit data exists and plot if available
+    # Check if quadratic fit data exists and plot if available (and not
+    # suppressed via the "show_quadratic_fit" visualization setting)
     has_quadratic = (
-        "quadratic_a_mean" in results_data
+        should_show_quadratic_fit()
+        and "quadratic_a_mean" in results_data
         and "quadratic_b_mean" in results_data
         and "quadratic_c_mean" in results_data
     )

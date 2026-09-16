@@ -87,6 +87,13 @@ VISUALIZATION_CONFIG = {
     "plot_file_format": "png",
     "clear_existing_plots": False,
     "enable_plot_validation": True,
+    # Whether to draw the quadratic fit (line, band, and legend entry)
+    # on critical mass extrapolation plots. The quadratic fit is still
+    # computed and written to the results CSV regardless of this flag
+    # (controlled upstream by "enable_quadratic_fit" in
+    # _pcac_critical_mass_config.py / _pion_critical_mass_config.py);
+    # this only controls whether it is plotted.
+    "show_quadratic_fit": False,
 }
 
 # =============================================================================
@@ -121,14 +128,16 @@ TITLE_EXCLUDED_PARAMETERS = [
     "Number_of_spinors",
     "Number_of_vectors",
     "APE_alpha",
-    # "APE_iterations",
-    # "CG_epsilon",
-    # "Lanczos_epsilon",
-    # "Clover_coefficient",
-    # "Delta_Max",
-    # "Delta_Min",
-    # "QCD_beta_value",
-    # "Rho_value",
+    "APE_iterations",
+    "Clover_coefficient",
+    "Delta_Max",
+    "Delta_Min",
+    "QCD_beta_value",
+    "Rho_value",
+    "CG_max_iterations",
+    "MSCG_max_iterations",
+    "KL_scaling_factor",
+    "Solver_type",
     # "Number_of_gauge_configurations",
 ]
 # That's it! No output quantities needed.
@@ -166,6 +175,18 @@ def get_layout_config():
 def get_default_clear_existing():
     """Get default value for clearing existing plots."""
     return VISUALIZATION_CONFIG["clear_existing_plots"]
+
+
+def should_show_quadratic_fit() -> bool:
+    """
+    Whether critical mass plots should draw the quadratic fit.
+
+    This only controls plotting; the quadratic fit itself is computed
+    upstream (see "enable_quadratic_fit" in _pcac_critical_mass_config.py
+    / _pion_critical_mass_config.py) and stays in the results CSV either
+    way.
+    """
+    return VISUALIZATION_CONFIG["show_quadratic_fit"]
 
 
 def get_visualization_config():
