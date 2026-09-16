@@ -34,7 +34,9 @@ TITLE_LABELS_BY_COLUMN_NAME = {
     "Lanczos_epsilon": "$\\epsilon_{\\text{Lanczos}}$",
     "Solver_epsilon": "$\\epsilon_{\\text{CG}}$",
     "Outer_solver_epsilon": "$\\epsilon_{\\text{CG}}$",
+    # "Outer_solver_epsilon": "$\\epsilon_{\\text{BiCGStab}}$", 
     "CG_epsilon": "$\\epsilon_{\\text{CG}}$",
+    "BiCGStab_epsilon": "$\\epsilon_{\\text{BiCGStab}}$",
     "MSCG_epsilon": "$\\epsilon_{\\text{MSCG}}$",
     "Inner_solver_epsilon": "$\\epsilon_{\\text{MSCG}}$",
     "Preconditioner_order": "$n_{\\text{prec}}$",
@@ -53,6 +55,7 @@ TITLE_LABELS_BY_COLUMN_NAME = {
     # Output quantities
     "Condition_number": "$\\kappa_{\\mathbb{X}^2}$",
     "Minimum_eigenvalue_squared": "$\\lambda_{\\text{min}}^2$",
+    "Minimum_eigenvalue": "$\\lambda_{\\text{min}}$",
     "Maximum_eigenvalue_squared": "$\\lambda_{\\text{max}}^2$",
     "Number_of_gauge_configurations": "# of configs",
     "Threads_per_process": "$n_{\\text{OMP}}$",
@@ -154,6 +157,9 @@ AXES_LABELS_BY_COLUMN_NAME = {
     "Average_number_of_CG_iterations_per_spinor": (
         "Average # of CG iterations (per spinor)"
     ),
+    "Average_number_of_MSCG_iterations_per_spinor": (
+        "Average # of MSCG iterations (per spinor)"
+    ),
     "Total_number_of_Lanczos_iterations": "Total Lanczos iterations",
     # ---------------------------------------------------------------------------
     # PCAC mass observables
@@ -249,10 +255,14 @@ AXES_LABELS_BY_COLUMN_NAME = {
     "Number_of_Chebyshev_terms": "N",
     "Number_of_cores": "Number of cores",
     "Minimum_eigenvalue_squared": "$\\lambda_{\\text{min}}^2$",
+    "Minimum_eigenvalue": "$\\lambda_{\\text{min}}$",
     "Maximum_eigenvalue_squared": "$\\lambda_{\\text{max}}^2$",
+    "Leftmost_real_kernel_eigenvalue": "$\\lambda_{\\text{L}}$",
     "Condition_number": "$\\kappa_{\\mathbb{X}^2}$",
     "KL_scaling_factor": "$\\mu$",
     "Rho_value": "$\\rho$",
+    "Lanczos_epsilon": "$\\epsilon_{\\text{Lanczos}}$",
+    "MSCG_epsilon": "$\\epsilon_{\\text{MSCG}}$",
     "Preconditioner_order": "$n_{\\text{prec}}$",
     "Preconditioner_mass": "$am_{\\text{prec}}$",
     "Preconditioner_solver_epsilon": "$\\left(\\epsilon_{\\text{prec}}\\right)^2$",
