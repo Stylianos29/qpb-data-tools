@@ -23,6 +23,9 @@ from matplotlib.figure import Figure
 
 from library.data.analyzer import DataFrameAnalyzer
 from library.visualization.builders.filename_builder import PlotFilenameBuilder
+from library.visualization.builders.fit_label_builder import (
+    format_polynomial_equation,
+)
 from library.constants.labels import FILENAME_LABELS_BY_COLUMN_NAME
 from library.data import load_csv
 
@@ -631,11 +634,17 @@ def create_critical_mass_plot(
     # Format fit range for legend
     fit_range_str = format_fit_range_for_legend(fit_range_min, fit_range_max)
 
+    linear_equation = format_polynomial_equation(
+        [results_data["slope_mean"], results_data["intercept_mean"]],
+        errors=[results_data["slope_error"], results_data["intercept_error"]],
+        variable="am",
+        lhs=f"$a{mass_symbol}$",
+    )
+
     linear_label = (
         f"$\\mathbf{{Linear\\ fit:}}$\n"
         f"  • Fitting range: $m \\in {fit_range_str}$\n"
-        f"  • $a{mass_symbol} = {results_data['slope_mean']:.4f}\\,m "
-        f"+ {results_data['intercept_mean']:.5f}$\n"
+        f"  • {linear_equation}\n"
         f"  • χ²/dof = {results_data['chi2_reduced']:.3f}\n"
         f"  • R² = {results_data['r_squared']:.4f}\n"
         f"  • Q = {results_data['fit_quality']:.3f}"
@@ -713,12 +722,25 @@ def create_critical_mass_plot(
         )
 
         # Format quadratic fit label
+        quadratic_equation = format_polynomial_equation(
+            [
+                results_data["quadratic_a_mean"],
+                results_data["quadratic_b_mean"],
+                results_data["quadratic_c_mean"],
+            ],
+            errors=[
+                results_data["quadratic_a_error"],
+                results_data["quadratic_b_error"],
+                results_data["quadratic_c_error"],
+            ],
+            variable="am",
+            lhs=f"$a{mass_symbol}$",
+        )
+
         quadratic_label = (
             f"$\\mathbf{{Quadratic\\ fit:}}$\n"
             f"  • Fitting range: $m \\in {quad_fit_range_str}$\n"
-            f"  • $a{mass_symbol} = {results_data['quadratic_a_mean']:.4f}\\,m^2 "
-            f"+ {results_data['quadratic_b_mean']:.4f}\\,m "
-            f"+ {results_data['quadratic_c_mean']:.5f}$\n"
+            f"  • {quadratic_equation}\n"
             f"  • χ²/dof = {results_data['quadratic_chi2_reduced']:.3f}\n"
             f"  • R² = {results_data['quadratic_r_squared']:.4f}\n"
             f"  • Q = {results_data['quadratic_fit_quality']:.3f}"

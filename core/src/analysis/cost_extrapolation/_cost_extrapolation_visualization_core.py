@@ -18,6 +18,10 @@ import matplotlib.pyplot as plt
 
 from library import load_csv
 from library.visualization.builders.filename_builder import PlotFilenameBuilder
+from library.visualization.builders.fit_label_builder import (
+    format_polynomial_equation,
+    format_shifted_power_law_equation,
+)
 from library.constants.labels import FILENAME_LABELS_BY_COLUMN_NAME
 
 from src.analysis.cost_extrapolation._cost_extrapolation_visualization_config import (
@@ -489,6 +493,8 @@ def create_mass_fit_plot(
     # Extract fit parameters
     slope = results_row[col_mapping["mass_fit"]["slope_mean"]]
     intercept = results_row[col_mapping["mass_fit"]["intercept_mean"]]
+    slope_error = results_row.get(col_mapping["mass_fit"]["slope_error"])
+    intercept_error = results_row.get(col_mapping["mass_fit"]["intercept_error"])
     r_squared = results_row[col_mapping["mass_fit"]["r_squared"]]
     chi2_reduced = results_row[col_mapping["mass_fit"]["chi2_reduced"]]
     q_value = results_row[col_mapping["mass_fit"]["q_value"]]
@@ -526,10 +532,17 @@ def create_mass_fit_plot(
     _add_fitting_range_markers(ax, mass_fit_min, mass_fit_max)
 
     # Create detailed fit label
+    mass_equation = format_polynomial_equation(
+        [slope, intercept],
+        errors=[slope_error, intercept_error],
+        variable="am",
+        lhs=f"${y_label_fit}$",
+    )
+
     fit_label = (
         f"$\\mathbf{{Linear\\ fit:}}$\n"
         f"  • Fitting range: $m$ ∈ [{mass_fit_min:.2f}, {mass_fit_max:.2f}]\n"
-        f"  • ${y_label_fit}$ = {slope:.4f}$m$ + {intercept:.5f}\n"
+        f"  • {mass_equation}\n"
         f"  • χ²/dof = {chi2_reduced:.3f}\n"
         f"  • R² = {r_squared:.4f}\n"
         f"  • Q = {q_value:.3f}"
@@ -709,6 +722,9 @@ def create_cost_fit_plot(
     a = results_row[col_mapping["cost_fit"]["param_a_mean"]]
     b = results_row[col_mapping["cost_fit"]["param_b_mean"]]
     c = results_row[col_mapping["cost_fit"]["param_c_mean"]]
+    a_error = results_row.get(col_mapping["cost_fit"]["param_a_error"])
+    b_error = results_row.get(col_mapping["cost_fit"]["param_b_error"])
+    c_error = results_row.get(col_mapping["cost_fit"]["param_c_error"])
     r_squared = results_row[col_mapping["cost_fit"]["r_squared"]]
     chi2_reduced = results_row[col_mapping["cost_fit"]["chi2_reduced"]]
     q_value = results_row[col_mapping["cost_fit"]["q_value"]]
@@ -725,10 +741,21 @@ def create_cost_fit_plot(
     _add_fitting_range_markers(ax, cost_fit_min, cost_fit_max)
 
     # Create detailed fit label
+    cost_equation = format_shifted_power_law_equation(
+        a,
+        b,
+        c,
+        a_error=a_error,
+        b_error=b_error,
+        c_error=c_error,
+        variable="$am$",
+        lhs="Cost",
+    )
+
     fit_label = (
         f"$\\mathbf{{Shifted\\ power\\ law:}}$\n"
         f"  • Fitting range: $m$ ∈ [{cost_fit_min:.2f}, {cost_fit_max:.2f}]\n"
-        f"  • Cost = {a:.2f}/($m$ - {b:.5f}) + {c:.2f}\n"
+        f"  • {cost_equation}\n"
         f"  • χ²/dof = {chi2_reduced:.3f}\n"
         f"  • R² = {r_squared:.4f}\n"
         f"  • Q = {q_value:.3f}"
