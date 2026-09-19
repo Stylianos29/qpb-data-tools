@@ -210,6 +210,24 @@ def detect_plateau_region_weighted_range(
     """
     Detect plateau region using weighted range test on gvar time series.
 
+    Every window [start, end) within the search range is tested; a
+    window passes when all its points lie within `sigma_threshold` of
+    its own inverse-variance-weighted mean. Which passing window is
+    returned depends on `search_range["prefer_central"]`:
+
+        - False (or absent): the first passing window found, scanning
+          starts left-to-right and, for each start, taking the
+          shortest passing length (exactly `min_plateau_size`). This
+          is the original greedy behavior - it tends to pick the
+          earliest, shortest window the data allow.
+        - True: every passing window in the search range is examined;
+          the longest passing length is kept, and ties are broken by
+          whichever window's center sits closest to the center of the
+          search range (a further tie goes to the smallest start,
+          i.e. the first one encountered). This uses as much of the
+          visibly flat region as the data support, rather than
+          stopping at the first minimal window.
+
     Args:
         - time_series_gvar: Array of gvar objects (from jackknife
           average)
@@ -223,6 +241,7 @@ def detect_plateau_region_weighted_range(
     n_points = len(time_series_gvar)
     min_start = search_range.get("min_start", 0)
     max_end = search_range.get("max_end", -1)
+    prefer_central = search_range.get("prefer_central", False)
 
     if max_end < 0:
         max_end = n_points + max_end
@@ -231,24 +250,59 @@ def detect_plateau_region_weighted_range(
     means = np.array([val.mean for val in time_series_gvar])
     stds = np.array([val.sdev for val in time_series_gvar])
 
-    # Search for plateau regions
+    if not prefer_central:
+        # Original greedy behavior: return the first window found,
+        # scanning starts left-to-right and lengths shortest-first.
+        for start in range(min_start, max_end - min_plateau_size + 1):
+            for end in range(start + min_plateau_size, max_end + 1):
+                plateau_means = means[start:end]
+                plateau_stds = stds[start:end]
+
+                # Weighted range test
+                weights = 1.0 / (plateau_stds**2 + 1e-12)  # Avoid /0
+                weighted_mean = np.sum(weights * plateau_means) / np.sum(weights)
+
+                # Check if all points are within sigma_threshold of
+                # weighted mean
+                deviations = np.abs(plateau_means - weighted_mean) / plateau_stds
+                if np.all(deviations <= sigma_threshold):
+                    return (start, end)
+
+        return None
+
+    # prefer_central: examine every window in the search range, keep
+    # the longest passing ones, and among those pick whichever is
+    # closest to the center of the search range.
+    range_center = (min_start + max_end) / 2.0
+    best_window: Optional[Tuple[int, int]] = None
+    best_length = 0
+    best_center_distance = np.inf
+
     for start in range(min_start, max_end - min_plateau_size + 1):
         for end in range(start + min_plateau_size, max_end + 1):
             plateau_means = means[start:end]
             plateau_stds = stds[start:end]
 
-            # Weighted range test
-            weights = 1.0 / (plateau_stds**2 + 1e-12)  # Avoid division by zero
+            weights = 1.0 / (plateau_stds**2 + 1e-12)  # Avoid /0
             weighted_mean = np.sum(weights * plateau_means) / np.sum(weights)
-            weighted_error = 1.0 / np.sqrt(np.sum(weights))
 
-            # Check if all points are within sigma_threshold of weighted
-            # mean
             deviations = np.abs(plateau_means - weighted_mean) / plateau_stds
-            if np.all(deviations <= sigma_threshold):
-                return (start, end)
+            if not np.all(deviations <= sigma_threshold):
+                continue
 
-    return None
+            length = end - start
+            center_distance = abs((start + end) / 2.0 - range_center)
+
+            is_longer = length > best_length
+            is_equal_length_more_central = (
+                length == best_length and center_distance < best_center_distance
+            )
+            if is_longer or is_equal_length_more_central:
+                best_window = (start, end)
+                best_length = length
+                best_center_distance = center_distance
+
+    return best_window
 
 
 # =============================================================================

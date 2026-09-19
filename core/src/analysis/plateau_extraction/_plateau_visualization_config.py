@@ -83,6 +83,7 @@ ANALYSIS_CONFIGS = {
 # Parameters to exclude from plot titles
 TITLE_EXCLUDED_PARAMETERS = [
     "APE_alpha",
+    "APE_iterations",
     "Main_program_type",
     "Maximum_Lanczos_iterations",
     "Number_of_spinors",
@@ -91,7 +92,15 @@ TITLE_EXCLUDED_PARAMETERS = [
     "MSCG_max_iterations",
     "MPI_geometry",
     "Threads_per_process",
+    "Delta_Max",
+    "Delta_Min",
+    "Clover_coefficient",
+    "KL_scaling_factor",
+    "QCD_beta_value",
+    "Rho_value",
+    "Solver_type",
 ]
+
 
 # =============================================================================
 # PLOT DIRECTORY CONFIGURATION
@@ -189,8 +198,8 @@ ANNOTATION_CONFIG = {
             "\nFit points: {n_fit_points}"
         ),
         "position": {
-            "x": 0.02,  # Relative position (0-1)
-            "y": 0.10,  # Relative position from bottom
+            "x": 0.5,  # Relative position (0-1); top-center keeps the
+            "y": 0.97,  # box clear of early-time data on both mass types
             "transform": "axes",  # Use axes coordinates
         },
         "bbox_props": {
@@ -203,6 +212,8 @@ ANNOTATION_CONFIG = {
         "font_props": {
             "size": PLOT_STYLING["fonts"]["annotation_size"],
             "family": PLOT_STYLING["fonts"]["family"],
+            "horizontalalignment": "center",
+            "verticalalignment": "top",
         },
         "precision": 4,  # Decimal places for plateau value
     },
@@ -210,14 +221,20 @@ ANNOTATION_CONFIG = {
     "config_label": {
         "template": "Sample: {config_label}",
         "position": {
-            "x": 0.98,
-            "y": 0.95,
+            # Just above the panel's top spine (axes y > 1), clear of
+            # both the top-right legend and the data area itself - no
+            # data point can ever land here, unlike any corner inside
+            # the axes, whose safety depends on the shape of the time
+            # series (e.g. PCAC decays to a low plateau at large t,
+            # but pion effective mass does not).
+            "x": 0.99,
+            "y": 1.02,
             "transform": "axes",
         },
         "font_props": {
             "size": PLOT_STYLING["fonts"]["annotation_size"],
             "horizontalalignment": "right",
-            "verticalalignment": "top",
+            "verticalalignment": "bottom",
         },
         "show": True,  # Whether to show config labels
     },

@@ -481,14 +481,14 @@ def add_plateau_annotations(
         transform=ax.transAxes,
         fontsize=box_config["font_props"]["size"],
         fontfamily=box_config["font_props"]["family"],
-        verticalalignment="bottom",
-        horizontalalignment="left",
+        verticalalignment=box_config["font_props"]["verticalalignment"],
+        horizontalalignment=box_config["font_props"]["horizontalalignment"],
         bbox=box_config["bbox_props"],
     )
 
 
 def add_config_label(ax: Axes, config_label: str) -> None:
-    """Add configuration label to top-right corner."""
+    """Add configuration label just above the panel's top-right corner."""
     annotation_config = get_annotation_config()
     label_config = annotation_config["config_label"]
 

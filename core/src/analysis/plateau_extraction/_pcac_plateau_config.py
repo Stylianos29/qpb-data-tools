@@ -29,7 +29,7 @@ SYMMETRIZATION_TRUNCATION = True  # Truncate to T/2 after symmetrization
 
 # Plateau search range (in array indices, not time values)
 PLATEAU_SEARCH_RANGE = {
-    "min_start": 2,  # Don't search before index 2
+    "min_start": 4,  # Don't search before index 4
     "max_end": -2,  # Don't include last 2 points
     "prefer_central": True,  # Prefer plateaus in central region
 }
