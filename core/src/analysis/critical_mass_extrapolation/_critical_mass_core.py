@@ -642,9 +642,23 @@ def process_critical_mass_analysis(
     # Get quadratic fit configuration from passed parameter
     enable_quadratic_fit = quadratic_config["enable_quadratic_fit"]
 
-    # Load and validate input data using library function
+    # Load and validate input data using library function. The bare mass
+    # column is checked separately: unlike the plateau column, whose
+    # absence signals a broken upstream stage, a missing bare mass means
+    # the data file set has no mass dimension to extrapolate over, which
+    # is a graceful skip rather than an error.
     logger.info(f"Loading {analysis_type.upper()} plateau data")
-    df = load_csv(input_csv_path, validate_required_columns=set(required_columns))
+    bare_mass_column = column_mapping["bare_mass"]
+    df = load_csv(
+        input_csv_path,
+        validate_required_columns=set(required_columns) - {bare_mass_column},
+    )
+
+    if bare_mass_column not in df.columns:
+        raise InsufficientDataError(
+            f"Input CSV has no '{bare_mass_column}' column, so there is no "
+            "bare mass variation to extrapolate over."
+        )
 
     analyzer = DataFrameAnalyzer(df)
 

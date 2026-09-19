@@ -210,7 +210,16 @@ COLUMN_OPERATIONS = {
         "Number_of_cores": {
             "formula": "mpi_geometry_product_times_threads",
             "inputs": ["MPI_geometry", "Threads_per_process"],
-        }
+        },
+        # Only derived when absent: where the filename carries a mass
+        # token, that parsed value stays authoritative, since deriving
+        # it would replace the exact label (e.g. -0.08) with its
+        # rounded reconstruction (-0.079999).
+        "Bare_mass": {
+            "formula": "bare_mass_from_kappa",
+            "inputs": ["Kappa_value"],
+            "only_if_missing": True,
+        },
     },
 }
 
@@ -352,4 +361,8 @@ CALCULATION_FUNCTIONS = {
     "total_time_divided_by_vectors": lambda total_time, n_vectors: (
         float(total_time) / int(n_vectors)
     ),
+    # Standard hopping-parameter relation: a*m = 1/(2*kappa) - 4. Used to
+    # recover the bare mass for data file sets whose log files report
+    # kappa but whose filenames carry no mass token.
+    "bare_mass_from_kappa": lambda kappa: round(1.0 / (2.0 * float(kappa)) - 4.0, 6),
 }

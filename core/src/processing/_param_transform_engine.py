@@ -382,6 +382,16 @@ class ParameterTransformationEngine:
             formula_name = config["formula"]
             input_columns = config["inputs"]
 
+            # Skip calculations marked as fallbacks when the column was
+            # already obtained from parsing (filename or log contents)
+            if config.get("only_if_missing", False):
+                if result_column in self.dataframe.columns:
+                    self.logger.info(
+                        f"Skipping derived {result_column}: column already "
+                        "present from parsing"
+                    )
+                    continue
+
             # Check if all input columns exist
             if all(col in self.dataframe.columns for col in input_columns):
                 formula_func = CALCULATION_FUNCTIONS.get(formula_name)
