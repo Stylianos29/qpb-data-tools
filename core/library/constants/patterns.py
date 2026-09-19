@@ -214,6 +214,14 @@ FILE_CONTENTS_SCALAR_PATTERNS_DICTIONARY = {
         "regex_pattern": r"(\d+)",
         "type": int,
     },
+    # Shifts applied to the gauge field, in (t, z, y, x) order, stored
+    # verbatim as reported in the log file (e.g. "14 7 6 2"). The pattern
+    # requires exactly 4 integers; anything else is left unparsed.
+    "Gauge_shifts": {
+        "line_identifier": "Conf shifts =",
+        "regex_pattern": r"Conf shifts =\s*(-?\d+(?:\s+-?\d+){3})\s*$",
+        "type": str,
+    },
     "Rho_value": {
         "line_identifier": "rho =",
         "regex_pattern": r"(\d+(\.\d+)?)",

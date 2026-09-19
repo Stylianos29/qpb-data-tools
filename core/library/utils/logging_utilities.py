@@ -410,7 +410,10 @@ class LoggingWrapper:
     """
 
     def __init__(
-        self, log_directory: str, log_filename: str, enable_logging: bool = True
+        self,
+        log_directory: Optional[str],
+        log_filename: str,
+        enable_logging: bool = True,
     ):
         """Initialize with old-style parameters."""
         if enable_logging:

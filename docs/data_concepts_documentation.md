@@ -53,6 +53,8 @@ parameters can be **single-valued** (constant across all data) or
 
 #### Computational Parameters
 - `Configuration_label`: Identifier for gauge configurations
+- `Gauge_shifts`: Shifts applied to the gauge field, in (t, z, y, x)
+  order, stored verbatim as a string (e.g. `"14 7 6 2"`)
 - `MPI_geometry`: Parallel computing layout
 - `Threads_per_process`: OpenMP thread count
 - `CG_epsilon`, `MSCG_epsilon`: Solver convergence criteria

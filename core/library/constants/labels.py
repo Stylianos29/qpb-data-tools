@@ -34,7 +34,7 @@ TITLE_LABELS_BY_COLUMN_NAME = {
     "Lanczos_epsilon": "$\\epsilon_{\\text{Lanczos}}$",
     "Solver_epsilon": "$\\epsilon_{\\text{CG}}$",
     "Outer_solver_epsilon": "$\\epsilon_{\\text{CG}}$",
-    # "Outer_solver_epsilon": "$\\epsilon_{\\text{BiCGStab}}$", 
+    # "Outer_solver_epsilon": "$\\epsilon_{\\text{BiCGStab}}$",
     "CG_epsilon": "$\\epsilon_{\\text{CG}}$",
     "BiCGStab_epsilon": "$\\epsilon_{\\text{BiCGStab}}$",
     "MSCG_epsilon": "$\\epsilon_{\\text{MSCG}}$",
