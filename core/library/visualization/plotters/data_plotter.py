@@ -245,6 +245,10 @@ class DataPlotter(DataFrameAnalyzer):
         annotation_boxstyle: str = "round,pad=0.3",
         annotation_alpha: float = 0.7,
         annotation_offset: Tuple[float, float] = (0, 10),
+        # Watermark
+        watermark_text: Optional[str] = None,
+        watermark_position: Optional[Union[str, Tuple[float, float]]] = None,
+        watermark_style: Optional[Dict[str, Any]] = None,
         # Output control
         target_ax: Optional[Axes] = None,
         is_inset: bool = False,
@@ -291,6 +295,30 @@ class DataPlotter(DataFrameAnalyzer):
             Custom title for the legend box. If None, the title is
             auto-generated from labeling_variable or grouping_variable.
             Ignored if include_legend_title is False.
+        watermark_text : str, optional
+            If given, stamps this text diagonally across the plotting
+            area — e.g. "PRELIMINARY" for results that are not final.
+            None (the default) draws no watermark. Insets never get
+            one; the parent figure already carries it.
+        watermark_position : str or tuple, optional
+            Where to place the watermark: a preset name ("center",
+            "upper left", "upper right", "lower left", "lower right")
+            or an (x, y) tuple in axes coordinates, where (0, 0) is the
+            bottom-left corner of the axes and (1, 1) the top-right.
+            Default is centred.
+        watermark_style : dict, optional
+            Overrides for the watermark appearance. Recognised keys:
+            "color" (default "gray"), "alpha" (0.20), "rotation" (30
+            degrees), "weight" ("bold"), "ha", "va", "zorder", plus
+            "fontsize", which is either an explicit point size or
+            "auto" (the default) to scale the text to "fit_fraction"
+            (0.85) of the axes.
+
+            Example:
+                plotter.plot(watermark_text="PRELIMINARY",
+                             watermark_style={"color": "red",
+                                              "alpha": 0.12})
+
         per_figure_overrides : Callable[[dict], dict | None], optional
             Function that customizes plot kwargs per figure. Called once
             per outer-grouping figure, receives that figure's metadata
@@ -420,6 +448,10 @@ class DataPlotter(DataFrameAnalyzer):
             "annotation_boxstyle": annotation_boxstyle,
             "annotation_alpha": annotation_alpha,
             "annotation_offset": annotation_offset,
+            # Watermark
+            "watermark_text": watermark_text,
+            "watermark_position": watermark_position,
+            "watermark_style": watermark_style,
             # Output (overrideable subset)
             "save_figure": save_figure,
             "file_format": file_format,
@@ -520,6 +552,10 @@ class DataPlotter(DataFrameAnalyzer):
             annotation_boxstyle = eff["annotation_boxstyle"]
             annotation_alpha = eff["annotation_alpha"]
             annotation_offset = eff["annotation_offset"]
+            # Watermark
+            watermark_text = eff["watermark_text"]
+            watermark_position = eff["watermark_position"]
+            watermark_style = eff["watermark_style"]
             # Output
             save_figure = eff["save_figure"]
             file_format = eff["file_format"]
@@ -714,6 +750,17 @@ class DataPlotter(DataFrameAnalyzer):
                     grouping_variable=grouping_variable,
                     metadata=metadata,
                     group_keys=group_keys,
+                )
+
+            # Stamp the watermark last, so it sits on top of
+            # everything a customization function may have drawn.
+            # Insets are skipped: the parent figure already carries it.
+            if watermark_text and not is_inset:
+                self.annotation_manager.add_watermark(
+                    ax=ax,
+                    text=watermark_text,
+                    position=watermark_position,
+                    style_overrides=watermark_style,
                 )
 
             # Save figure - only save main figures

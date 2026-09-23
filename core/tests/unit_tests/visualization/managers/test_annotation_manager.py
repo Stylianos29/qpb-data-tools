@@ -310,6 +310,164 @@ class TestCustomAnnotations:
         assert kwargs["bbox"]["facecolor"] == "lightblue"
 
 
+class TestWatermark:
+    """Test watermark functionality."""
+
+    def test_add_watermark_defaults(self, annotation_manager):
+        """Test that the default watermark is centred and on top."""
+        fig, ax = plt.subplots()
+
+        watermark = annotation_manager.add_watermark(ax)
+
+        assert watermark is not None
+        assert watermark.get_text() == "PRELIMINARY"
+        assert watermark.get_position() == (0.5, 0.5)
+        assert watermark.get_transform() is ax.transAxes
+        assert watermark.get_zorder() == 1000
+        assert watermark in ax.texts
+
+        plt.close(fig)
+
+    def test_add_watermark_custom_text(self, annotation_manager):
+        """Test watermark with custom text."""
+        fig, ax = plt.subplots()
+
+        watermark = annotation_manager.add_watermark(ax, text="DRAFT")
+
+        assert watermark is not None
+        assert watermark.get_text() == "DRAFT"
+
+        plt.close(fig)
+
+    def test_add_watermark_empty_text_draws_nothing(self, annotation_manager):
+        """Test that empty watermark text is a no-op."""
+        fig, ax = plt.subplots()
+
+        watermark = annotation_manager.add_watermark(ax, text="")
+
+        assert watermark is None
+        assert len(ax.texts) == 0
+
+        plt.close(fig)
+
+    def test_add_watermark_with_preset_position(self, annotation_manager):
+        """Test watermark placement via a position preset."""
+        fig, ax = plt.subplots()
+
+        watermark = annotation_manager.add_watermark(ax, position="lower right")
+
+        assert watermark is not None
+        expected = annotation_manager.watermark_position_presets["lower right"]
+        assert watermark.get_position() == expected
+
+        plt.close(fig)
+
+    def test_add_watermark_with_tuple_position(self, annotation_manager):
+        """Test watermark placement via explicit axes coordinates."""
+        fig, ax = plt.subplots()
+
+        watermark = annotation_manager.add_watermark(ax, position=(0.2, 0.8))
+
+        assert watermark is not None
+        assert watermark.get_position() == (0.2, 0.8)
+
+        plt.close(fig)
+
+    def test_add_watermark_unknown_preset_falls_back_to_default(
+        self, annotation_manager
+    ):
+        """Test that an unrecognised preset centres the watermark."""
+        fig, ax = plt.subplots()
+
+        watermark = annotation_manager.add_watermark(ax, position="nowhere")
+
+        assert watermark is not None
+        assert watermark.get_position() == (0.5, 0.5)
+
+        plt.close(fig)
+
+    def test_add_watermark_with_style_overrides(self, annotation_manager):
+        """Test watermark with style overrides."""
+        fig, ax = plt.subplots()
+
+        watermark = annotation_manager.add_watermark(
+            ax,
+            style_overrides={
+                "fontsize": 25,
+                "color": "red",
+                "alpha": 0.5,
+                "rotation": 0,
+            },
+        )
+
+        assert watermark is not None
+        # An explicit fontsize must survive: no auto-fitting.
+        assert watermark.get_fontsize() == 25
+        assert watermark.get_color() == "red"
+        assert watermark.get_alpha() == 0.5
+        assert watermark.get_rotation() == 0
+
+        plt.close(fig)
+
+    def test_add_watermark_excluded_from_legend(self, annotation_manager):
+        """Test that the watermark never shows up in the legend."""
+        fig, ax = plt.subplots()
+
+        ax.plot([1, 2, 3], [1, 2, 3], label="data")
+        annotation_manager.add_watermark(ax)
+        legend = ax.legend()
+
+        assert [text.get_text() for text in legend.get_texts()] == ["data"]
+
+        plt.close(fig)
+
+    def test_add_watermark_auto_fits_within_axes(self, annotation_manager):
+        """Test that the auto-sized watermark stays inside the axes."""
+        fig, ax = plt.subplots(figsize=(7, 5))
+
+        watermark = annotation_manager.add_watermark(ax)
+
+        assert watermark is not None
+        renderer = fig.canvas.get_renderer()
+        text_box = watermark.get_window_extent(renderer)
+        axes_box = ax.get_window_extent(renderer)
+
+        assert text_box.width <= axes_box.width
+        assert text_box.height <= axes_box.height
+
+        plt.close(fig)
+
+    def test_add_watermark_auto_fit_adapts_to_axes_shape(self, annotation_manager):
+        """Test that auto-sizing shrinks the watermark on smaller axes."""
+        wide_fig, wide_ax = plt.subplots(figsize=(10, 5))
+        small_fig, small_ax = plt.subplots(figsize=(4, 2))
+
+        wide_watermark = annotation_manager.add_watermark(wide_ax)
+        small_watermark = annotation_manager.add_watermark(small_ax)
+
+        assert wide_watermark is not None and small_watermark is not None
+        assert small_watermark.get_fontsize() < wide_watermark.get_fontsize()
+
+        plt.close(wide_fig)
+        plt.close(small_fig)
+
+    def test_add_watermark_without_renderer_uses_fallback_size(
+        self, annotation_manager, mock_axes
+    ):
+        """Test that auto-sizing degrades gracefully without a renderer."""
+        mock_text = Mock(spec=Text)
+        mock_axes.text.return_value = mock_text
+        mock_axes.get_figure.return_value = None
+
+        watermark = annotation_manager.add_watermark(mock_axes)
+
+        assert watermark is mock_text
+        mock_text.set_fontsize.assert_not_called()
+        _, kwargs = mock_axes.text.call_args
+        expected = annotation_manager.default_watermark_style["fallback_fontsize"]
+        assert kwargs["fontsize"] == expected
+
+
 class TestBatchAnnotations:
     """Test batch annotation functionality."""
 

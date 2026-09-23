@@ -78,6 +78,32 @@ class PlotAnnotationManager:
             "below_right": (10, -10),
         }
 
+        # Default watermark style. Deliberately low-contrast and drawn
+        # on top of the data, so it reads as a status stamp (e.g.
+        # "PRELIMINARY") without obscuring the points underneath.
+        self.default_watermark_style = {
+            "fontsize": "auto",  # or an explicit point size
+            "color": "gray",
+            "alpha": 0.20,
+            "rotation": 30,
+            "position": (0.5, 0.5),  # (x, y) in axes coordinates
+            "ha": "center",
+            "va": "center",
+            "weight": "bold",
+            "zorder": 1000,  # Above data, below nothing
+            "fit_fraction": 0.85,  # Fraction of the axes to span when "auto"
+            "fallback_fontsize": 32,  # Used if auto-sizing is unavailable
+        }
+
+        # Watermark positioning presets, in axes coordinates
+        self.watermark_position_presets = {
+            "center": (0.5, 0.5),
+            "upper left": (0.25, 0.75),
+            "upper right": (0.75, 0.75),
+            "lower left": (0.25, 0.25),
+            "lower right": (0.75, 0.25),
+        }
+
     def add_data_point_annotations(
         self,
         ax: Axes,
@@ -213,6 +239,124 @@ class PlotAnnotationManager:
         return self._create_single_annotation(
             ax, x, y, text, color, style, coordinate_system
         )
+
+    def add_watermark(
+        self,
+        ax: Axes,
+        text: str = "PRELIMINARY",
+        position: Union[str, Tuple[float, float], None] = None,
+        style_overrides: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Text]:
+        """
+        Stamp a watermark across the plotting area.
+
+        Intended for marking figures whose content is not final, e.g.
+        "PRELIMINARY" on results shown before publication. The text is
+        placed in axes coordinates, drawn on top of the data with a low
+        alpha so nothing underneath is hidden, and is excluded from the
+        legend.
+
+        Parameters:
+        -----------
+        - ax : matplotlib.axes.Axes
+            The axes to stamp.
+        - text : str, optional
+            Watermark text. Default is "PRELIMINARY".
+        - position : str or tuple, optional
+            Either a preset name (see `watermark_position_presets`) or
+            an (x, y) tuple in axes coordinates, where (0, 0) is the
+            bottom-left and (1, 1) the top-right of the axes. If None,
+            the style's "position" entry is used (centred by default).
+        - style_overrides : dict, optional
+            Style parameters overriding `default_watermark_style`:
+            color, alpha, rotation, ha, va, weight, zorder, plus
+            "fontsize", which is either an explicit point size or
+            "auto" (the default) to scale the text to `fit_fraction`
+            of the axes width.
+
+        Returns:
+        --------
+        matplotlib.text.Text or None
+            The created text object, or None if `text` is empty.
+        """
+        if not text:
+            return None
+
+        style = {**self.default_watermark_style, **(style_overrides or {})}
+
+        # Resolve the position: explicit argument wins over the style.
+        if position is None:
+            position = style["position"]
+        if isinstance(position, str):
+            position = self.watermark_position_presets.get(
+                position, self.default_watermark_style["position"]
+            )
+
+        x, y = position
+
+        # "auto" is resolved after the text exists, so it can be
+        # measured; start from the fallback size in the meantime.
+        auto_size = style["fontsize"] == "auto"
+        fontsize = style["fallback_fontsize"] if auto_size else style["fontsize"]
+
+        watermark = ax.text(
+            x,
+            y,
+            text,
+            transform=ax.transAxes,
+            fontsize=fontsize,
+            color=style["color"],
+            alpha=style["alpha"],
+            rotation=style["rotation"],
+            ha=style["ha"],
+            va=style["va"],
+            weight=style["weight"],
+            zorder=style["zorder"],
+            label="_nolegend_",
+        )
+
+        if auto_size:
+            self._fit_watermark_fontsize(ax, watermark, fontsize, style["fit_fraction"])
+
+        return watermark
+
+    def _fit_watermark_fontsize(
+        self,
+        ax: Axes,
+        watermark: Text,
+        current_fontsize: float,
+        fit_fraction: float,
+    ) -> None:
+        """
+        Rescale a watermark so its rendered bounding box spans at most
+        `fit_fraction` of the axes in both directions.
+
+        The rotated text is measured at its current size and the font
+        is scaled by the tighter of the two ratios, so a long watermark
+        stays inside short/wide axes as well as tall/narrow ones.
+        Measurement needs a renderer, which is not always available
+        (e.g. with a mocked figure, or before the canvas exists); in
+        that case the current size is left alone.
+        """
+        try:
+            figure = ax.get_figure()
+            if figure is None:
+                return
+            renderer = figure.canvas.get_renderer()  # type: ignore[attr-defined]
+            text_box = watermark.get_window_extent(renderer)
+            axes_box = ax.get_window_extent(renderer)
+        except Exception:
+            # No usable renderer: keep the size we started with.
+            return
+
+        if not text_box.width or not text_box.height:
+            return
+
+        scale = min(
+            fit_fraction * axes_box.width / text_box.width,
+            fit_fraction * axes_box.height / text_box.height,
+        )
+        watermark.set_fontsize(current_fontsize * scale)
 
     def add_batch_annotations(
         self,
