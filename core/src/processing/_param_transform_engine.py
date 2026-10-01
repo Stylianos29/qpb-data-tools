@@ -6,6 +6,7 @@ resolution of ambiguous solver parameters into canonical names.
 """
 
 import logging
+import re
 from typing import Dict, Optional
 from typing import cast
 
@@ -1011,6 +1012,14 @@ class HDF5ParameterProcessor:
                 unit = "vector"  # fallback
 
             resolved_pattern = resolved_pattern.replace("{unit}", unit)
+
+        # Guard against placeholders leaking into column names
+        unresolved = re.findall(r"\{[^{}]*\}", resolved_pattern)
+        if unresolved:
+            raise ValueError(
+                f"Could not resolve placeholder(s) {unresolved} in output "
+                f"pattern '{pattern}' (e.g. missing 'Main_program_type' column)"
+            )
 
         return resolved_pattern
 

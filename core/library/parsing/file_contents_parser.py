@@ -20,6 +20,10 @@ def _extract_main_program_type(file_contents_list: List[str]) -> Optional[str]:
     Extract the main program type based on specific key phrases in file
     contents.
 
+    Matching ignores whitespace, since different qpb versions print the
+    same quantity with different spacing (e.g. "|| Sign^2(X) ||^2" vs
+    "||Sign^2(X)||^2").
+
     Args:
         file_contents_list: List of lines read from the file
 
@@ -27,13 +31,18 @@ def _extract_main_program_type(file_contents_list: List[str]) -> Optional[str]:
         Main program type string if found, None otherwise
 
     Example:
-        >>> lines = ["Some text", "|| Sign^2(X) - 1 ||^2 = 0.001", "More text"]
+        >>> lines = ["Some text", "||Sign^2(X) - 1||^2 = 0.001", "More text"]
         >>> _extract_main_program_type(lines)
         "sign_squared_violation"
     """
+    normalized_mapping = {
+        "".join(key_string.split()): program_type
+        for key_string, program_type in constants.MAIN_PROGRAM_TYPE_MAPPING.items()
+    }
     for line in file_contents_list:
-        for key_string, program_type in constants.MAIN_PROGRAM_TYPE_MAPPING.items():
-            if key_string in line:
+        normalized_line = "".join(line.split())
+        for key_string, program_type in normalized_mapping.items():
+            if key_string in normalized_line:
                 return program_type
     return None
 
