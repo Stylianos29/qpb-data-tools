@@ -276,9 +276,17 @@ FILE_CONTENTS_SCALAR_PATTERNS_DICTIONARY = {
         "regex_pattern": r"(\d+)",
         "type": int,
     },
+    # Older logs print "Min eigenvalue squared modification ...", newer ones
+    # "selected delta_min = 5.000000e-01". Alternatives are tried in order.
     "Delta_Min": {
-        "line_identifier": "Min eigenvalue squared modification",
-        "regex_pattern": r"(\d+(\.\d+)?)",
+        "line_identifier": (
+            "Min eigenvalue squared modification",
+            "selected delta_min",
+        ),
+        "regex_pattern": (
+            r"(\d+(\.\d+)?)",
+            r"=\s*([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)",
+        ),
         "type": float,
     },
     "Delta_Max": {

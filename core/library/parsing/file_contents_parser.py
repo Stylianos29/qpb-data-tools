@@ -245,20 +245,29 @@ def extract_scalar_parameters_from_file_contents(
         param_name,
         param_info,
     ) in constants.FILE_CONTENTS_SCALAR_PATTERNS_DICTIONARY.items():
-        line_identifier = param_info["line_identifier"]
-        regex_pattern = param_info["regex_pattern"]
+        identifiers = param_info["line_identifier"]
+        regexes = param_info["regex_pattern"]
         expected_type = param_info["type"]
 
-        # Find line containing the parameter
-        matched_line = _find_line_with_identifier(file_contents_list, line_identifier)
+        # A parameter may have several alternative formats: identifiers
+        # (and optionally regexes) given as tuples are paired by position
+        if isinstance(identifiers, str):
+            identifiers = (identifiers,)
+        if isinstance(regexes, str):
+            regexes = (regexes,) * len(identifiers)
 
-        if matched_line:
-            # Extract parameter value from the line
+        for line_identifier, regex_pattern in zip(identifiers, regexes):
+            matched_line = _find_line_with_identifier(
+                file_contents_list, line_identifier
+            )
+            if not matched_line:
+                continue
             extracted_value = _extract_parameter_from_line(
                 matched_line, regex_pattern, param_name, expected_type, logger
             )
             if extracted_value is not None:
                 extracted_values[param_name] = extracted_value
+                break
 
     return extracted_values
 
