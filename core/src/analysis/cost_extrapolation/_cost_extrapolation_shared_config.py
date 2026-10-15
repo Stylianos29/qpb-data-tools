@@ -94,6 +94,31 @@ COST_FIT_CONFIG = {
     "fit_method": "leastsq",  # Optimization method
 }
 
+# Additional (diagnostic) generalized power law fit, performed on the
+# same data and fitting range as the shifted power law:
+#
+#   cost = K * [1/(bare_mass - b) + r]^p
+#
+# Motivated by outer CG iterations scaling as kappa^p, with the
+# condition number kappa = A + B/(m + b0) of the approximate overlap
+# operator: b <-> sign-function approximation error, r = A/B (expected
+# ~0), p = CG convergence exponent (1 for the worst-case bound). K and
+# p are fitted through their logarithms, which keeps them positive.
+GENERALIZED_POWER_LAW_FIT_CONFIG = {
+    "enable_generalized_power_law_fit": True,
+    "priors": {
+        # log(K) is centred on max_cost * min_bare_mass (the amplitude
+        # for p=1, b=0); the width is a factor of e^width either way
+        "log_K_width": 2.3,  # ~ factor of 10
+        "b_mean": 0.0,
+        "b_width": 0.01,
+        "r_mean": 0.0,
+        "r_width": 100.0,
+        "log_p_mean": 0.0,  # p = 1
+        "log_p_width": 0.7,  # p within ~[0.5, 2] at 1 sigma
+    },
+}
+
 
 # =============================================================================
 # CSV OUTPUT CONFIGURATION
@@ -199,6 +224,16 @@ def get_cost_fit_config() -> Dict[str, Any]:
     return COST_FIT_CONFIG.copy()
 
 
+def get_generalized_power_law_fit_config() -> Dict[str, Any]:
+    """Get generalized power law (diagnostic) fit configuration."""
+    return {
+        "enable_generalized_power_law_fit": GENERALIZED_POWER_LAW_FIT_CONFIG[
+            "enable_generalized_power_law_fit"
+        ],
+        "priors": GENERALIZED_POWER_LAW_FIT_CONFIG["priors"].copy(),
+    }
+
+
 def get_csv_output_config() -> Dict[str, Any]:
     """Get CSV output configuration."""
     return CSV_OUTPUT_CONFIG.copy()
@@ -267,6 +302,15 @@ def validate_shared_cost_config():
 
     if not (0 < PHYSICAL_VALIDATION["max_cost_error_ratio"] <= 1):
         raise ValueError("max_cost_error_ratio must be between 0 and 1")
+
+    # Validate generalized power law fit config
+    gpl_config = GENERALIZED_POWER_LAW_FIT_CONFIG
+    if not isinstance(gpl_config["enable_generalized_power_law_fit"], bool):
+        raise ValueError("enable_generalized_power_law_fit must be boolean")
+
+    for key, value in gpl_config["priors"].items():
+        if key.endswith("_width") and value <= 0:
+            raise ValueError(f"Generalized power law prior '{key}' must be positive")
 
     # Validate CSV config
     if CSV_OUTPUT_CONFIG["float_precision"] < 1:

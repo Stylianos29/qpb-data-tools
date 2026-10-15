@@ -21,6 +21,7 @@ from library.visualization.builders.filename_builder import PlotFilenameBuilder
 from library.visualization.builders.fit_label_builder import (
     format_polynomial_equation,
     format_shifted_power_law_equation,
+    format_generalized_power_law_equation,
 )
 from library.constants.labels import FILENAME_LABELS_BY_COLUMN_NAME
 
@@ -38,6 +39,8 @@ from src.analysis.cost_extrapolation._cost_extrapolation_visualization_config im
     get_mass_data_column_mapping,
     get_cost_data_column_mapping,
     get_plot_type_subdirectories,
+    get_generalized_power_law_plot_config,
+    should_show_generalized_power_law_fit,
     TITLE_EXCLUDED_PARAMETERS,
 )
 
@@ -814,6 +817,11 @@ def create_cost_fit_plot(
         alpha=extrap_lines["alpha"],
     )
 
+    # Generalized power law (diagnostic) fit, if available
+    power_fit_handles = _add_generalized_power_law_fit(
+        ax, results_row, x_fit, cost_fit_min, cost_fit_max, derived_bare_mass
+    )
+
     # Add sample count annotations (using mass data) Match by bare mass
     # values
     mass_col_mapping = get_mass_data_column_mapping(analysis_type=analysis_type)
@@ -846,10 +854,6 @@ def create_cost_fit_plot(
     if fig_cfg["grid"]:
         ax.grid(True, alpha=fig_cfg["grid_alpha"], linestyle=fig_cfg["grid_linestyle"])
 
-    # Add legend
-    legend_cfg = get_legend_config(plot_type="cost_fit")
-    ax.legend(**legend_cfg)
-
     # Generate title using PlotTitleBuilder
     title_style = get_title_styling()
     title = title_builder.build(
@@ -862,6 +866,19 @@ def create_cost_fit_plot(
     ax.set_title(title, fontsize=title_style["fontsize"], pad=title_style["pad"])
 
     plt.tight_layout()
+
+    # Add legend after the layout is final, so that the generalized power
+    # law fit's own box can be placed right below the main one
+    legend_cfg = get_legend_config(plot_type="cost_fit")
+    if power_fit_handles:
+        handles, labels = ax.get_legend_handles_labels()
+        main_entries = [
+            (h, l) for h, l in zip(handles, labels) if h not in power_fit_handles
+        ]
+        main_legend = ax.legend(*zip(*main_entries), **legend_cfg)
+        _add_secondary_legend_below(fig, ax, main_legend, power_fit_handles, legend_cfg)
+    else:
+        ax.legend(**legend_cfg)
 
     # Save to sub-subdirectory
     plot_subdirs = get_plot_type_subdirectories()
@@ -887,6 +904,111 @@ def create_cost_fit_plot(
 # =============================================================================
 # HELPER FUNCTIONS FOR PLOT ELEMENTS
 # =============================================================================
+
+
+def _add_generalized_power_law_fit(
+    ax, results_row, x_fit, fit_range_min, fit_range_max, derived_bare_mass
+) -> List[Any]:
+    """
+    Draw the generalized power law fit K [1/(x-b) + r]^p and its
+    extrapolated point.
+
+    Returns:
+        The plotted artists (fit line and extrapolation marker), or an
+        empty list when the fit is disabled for plotting or absent from
+        the results (older CSV, or the fit failed for this group)
+    """
+    if not should_show_generalized_power_law_fit():
+        return []
+
+    cols = get_results_column_mapping()["power_fit"]
+    values = {key: results_row.get(col) for key, col in cols.items()}
+    if any(v is None or pd.isna(v) for v in values.values()):
+        return []
+
+    style = get_generalized_power_law_plot_config()
+    fit_style = get_fit_line_style()
+
+    K, b, r, p = (values[f"param_{n}_mean"] for n in ("K", "b", "r", "p"))
+
+    x_line = x_fit[x_fit > b]
+    bracket = 1 / (x_line - b) + r
+    x_line, bracket = x_line[bracket > 0], bracket[bracket > 0]
+    y_line = K * bracket**p
+
+    equation = format_generalized_power_law_equation(
+        K,
+        b,
+        r,
+        p,
+        K_error=values["param_K_error"],
+        b_error=values["param_b_error"],
+        r_error=values["param_r_error"],
+        p_error=values["param_p_error"],
+        variable="$am$",
+        lhs="Cost",
+    )
+
+    fit_label = (
+        f"$\\mathbf{{Generalized\\ power\\ law:}}$\n"
+        f"  • Fitting range: $m$ ∈ [{fit_range_min:.2f}, {fit_range_max:.2f}]\n"
+        f"  • {equation}\n"
+        f"  • χ²/dof = {values['chi2_reduced']:.3f}\n"
+        f"  • R² = {values['r_squared']:.4f}\n"
+        f"  • Q = {values['q_value']:.3f}"
+    )
+
+    (line,) = ax.plot(
+        x_line,
+        y_line,
+        color=style["color"],
+        linewidth=fit_style["linewidth"],
+        linestyle=style["linestyle"],
+        label=fit_label,
+    )
+
+    extrap_marker = get_extrapolation_marker_style()
+    extrap_mean = values["extrapolated_cost_mean"]
+    extrap_error = values["extrapolated_cost_error"]
+
+    (marker,) = ax.plot(
+        derived_bare_mass,
+        extrap_mean,
+        marker=style["marker"],
+        markersize=extrap_marker["marker_size"],
+        color=style["color"],
+        markeredgecolor=style["color"],
+        alpha=extrap_marker["alpha"],
+        zorder=extrap_marker["zorder"],
+        linestyle="",
+        label=f"Extrapolation: {extrap_mean:.1f} ± {extrap_error:.1f} core-hrs",
+    )
+
+    return [line, marker]
+
+
+def _add_secondary_legend_below(fig, ax, main_legend, handles, legend_cfg):
+    """
+    Add a second legend box right-aligned directly below an existing
+    one, keeping the first legend on the axes.
+    """
+    style = get_generalized_power_law_plot_config()
+
+    # The main legend's extent is only known after a draw
+    fig.canvas.draw()
+    main_bbox = main_legend.get_window_extent().transformed(
+        ax.transAxes.inverted()
+    )
+
+    secondary_cfg = {k: v for k, v in legend_cfg.items() if k != "loc"}
+    ax.add_artist(main_legend)
+    ax.legend(
+        handles=handles,
+        labels=[h.get_label() for h in handles],
+        loc="upper right",
+        bbox_to_anchor=(main_bbox.x1, main_bbox.y0 - style["legend_gap"]),
+        **secondary_cfg,
+    )
 
 
 def _add_reference_axes(ax):

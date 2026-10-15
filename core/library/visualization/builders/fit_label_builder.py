@@ -36,6 +36,7 @@ __all__ = [
     "format_signed_term",
     "format_polynomial_equation",
     "format_shifted_power_law_equation",
+    "format_generalized_power_law_equation",
 ]
 
 
@@ -277,5 +278,66 @@ def format_shifted_power_law_equation(
     offset = format_signed_term(c, c_error, fallback_format=fallback_format)
 
     equation = f"{numerator} / ( {variable} {shift_operator} {shift_magnitude} ) {offset}"
+
+    return f"{lhs} = {equation}" if lhs else equation
+
+
+def format_generalized_power_law_equation(
+    K: float,
+    b: float,
+    r: float,
+    p: float,
+    K_error: Optional[float] = None,
+    b_error: Optional[float] = None,
+    r_error: Optional[float] = None,
+    p_error: Optional[float] = None,
+    variable: str = "m",
+    lhs: Optional[str] = "Cost",
+    fallback_format: str = ".4f",
+) -> str:
+    """
+    Format a generalized power law ``K [1/(x - b) + r]^p`` as an
+    equation.
+
+    As in :func:`format_shifted_power_law_equation`, a negative `b` is
+    rendered as ``(x + |b|)``. The exponent is rendered as a mathtext
+    superscript.
+
+    Parameters:
+    -----------
+    K, b, r, p : float
+        Fitted parameters of ``K [1/(variable - b) + r]^p``.
+    K_error, b_error, r_error, p_error : float, optional
+        Uncertainties on the corresponding parameters.
+    variable : str, optional
+        Symbol for the independent variable, passed through verbatim.
+    lhs : str, optional
+        Left-hand side; when given, the result is prefixed with
+        ``"{lhs} = "``. Default is "Cost".
+    fallback_format : str, optional
+        Format string used when no usable uncertainty is available.
+
+    Returns:
+    --------
+    str
+        E.g. ``"Cost = 12.4(6) [ 1/( m + 0.0021(8) ) + 0.4(2.3) ]$^{0.82(2)}$"``.
+    """
+    amplitude = format_signed_term(
+        K, K_error, leading=True, fallback_format=fallback_format
+    )
+
+    shift_operator = "+" if float(b) < 0.0 else "-"
+    shift_magnitude = format_value_with_error(
+        abs(float(b)), b_error, fallback_format=fallback_format
+    )
+
+    offset = format_signed_term(r, r_error, fallback_format=fallback_format)
+
+    exponent = format_value_with_error(p, p_error, fallback_format=fallback_format)
+
+    equation = (
+        f"{amplitude} [ 1/( {variable} {shift_operator} {shift_magnitude} ) "
+        f"{offset} ]$^{{{exponent}}}$"
+    )
 
     return f"{lhs} = {equation}" if lhs else equation

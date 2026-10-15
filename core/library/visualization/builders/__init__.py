@@ -5,6 +5,7 @@ from .fit_label_builder import (
     format_signed_term,
     format_polynomial_equation,
     format_shifted_power_law_equation,
+    format_generalized_power_law_equation,
 )
 
 # Define public API
@@ -15,4 +16,5 @@ __all__ = [
     "format_signed_term",
     "format_polynomial_equation",
     "format_shifted_power_law_equation",
+    "format_generalized_power_law_equation",
 ]

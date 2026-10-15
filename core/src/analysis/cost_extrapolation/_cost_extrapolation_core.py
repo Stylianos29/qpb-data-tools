@@ -4,7 +4,8 @@ Core processing functions for computational cost extrapolation.
 Provides shared processing logic for both PCAC and pion mass-based cost
 extrapolation methods. Implements two-stage analysis:
   1. Mass to bare mass conversion via fitting
-  2. Cost extrapolation using shifted power law
+  2. Cost extrapolation using shifted power law (plus an optional
+     diagnostic generalized power law fit)
 
 Key capabilities:
   - Load and validate mass and cost data
@@ -36,6 +37,7 @@ from src.analysis.cost_extrapolation._cost_extrapolation_shared_config import (
     get_cost_data_columns,
     get_csv_output_config,
     get_output_excluded_columns,
+    get_generalized_power_law_fit_config,
 )
 
 # =============================================================================
@@ -892,6 +894,20 @@ def fit_and_extrapolate_cost(
             "n_configurations": int(cost_group_df["n_configurations"].sum()),
         }
 
+        # Additional diagnostic fit on the same data; its failure does
+        # not affect the shifted power law result
+        gpl_config = get_generalized_power_law_fit_config()
+        if gpl_config["enable_generalized_power_law_fit"]:
+            gpl_result = fit_generalized_power_law(
+                x_data,
+                y_data,
+                derived_bare_mass,
+                gpl_config["priors"],
+                logger,
+            )
+            if gpl_result is not None:
+                result.update(gpl_result)
+
         return result
 
     except Exception as e:
@@ -899,6 +915,122 @@ def fit_and_extrapolate_cost(
         import traceback
 
         logger.error(traceback.format_exc())
+        return None
+
+
+def generalized_power_law(x, p):
+    """cost = K * [1/(x - b) + r]^p"""
+    return p["K"] * (1 / (x - p["b"]) + p["r"]) ** p["p"]
+
+
+def fit_generalized_power_law(
+    x_data: np.ndarray,
+    y_data: np.ndarray,
+    derived_bare_mass: gv.GVar,
+    prior_config: Mapping[str, float],
+    logger,
+) -> Optional[Dict[str, Any]]:
+    """
+    Diagnostic fit of cost vs bare mass with a generalized power law
+    and extrapolation to the derived bare mass.
+
+    Fit: cost = K * [1/(bare_mass - b) + r]^p
+
+    K and p are fitted through log(K) and log(p) priors, which keeps
+    them positive.
+
+    Args:
+        - x_data: Bare mass values within the cost fitting range
+        - y_data: Averaged costs (gvar) at those bare masses
+        - derived_bare_mass: Target bare mass for extrapolation (with
+          uncertainty)
+        - prior_config: Prior centres and widths (see
+          GENERALIZED_POWER_LAW_FIT_CONFIG)
+        - logger: Logger instance
+
+    Returns:
+        Dictionary with "power_fit_*" results or None if the fit fails
+    """
+    try:
+        if len(x_data) < 5:
+            logger.warning(
+                f"    Generalized power law fit skipped: {len(x_data)} points "
+                f"for 4 parameters"
+            )
+            return None
+
+        # Amplitude scale for p=1, b=0: cost ~ K/m at the lightest mass
+        min_bare_mass = float(x_data.min())
+        max_cost = float(gv.mean(y_data).max())
+        log_K_center = np.log(max_cost * min_bare_mass)
+
+        prior = {
+            "log(K)": gv.gvar(log_K_center, prior_config["log_K_width"]),
+            "b": gv.gvar(prior_config["b_mean"], prior_config["b_width"]),
+            "r": gv.gvar(prior_config["r_mean"], prior_config["r_width"]),
+            "log(p)": gv.gvar(prior_config["log_p_mean"], prior_config["log_p_width"]),
+        }
+
+        logger.info(
+            f"    Generalized power law priors: log(K)≈{prior['log(K)']}, "
+            f"b≈{prior['b']}, r≈{prior['r']}, log(p)≈{prior['log(p)']}"
+        )
+
+        fit = lsqfit.nonlinear_fit(
+            data=(x_data, y_data),
+            fcn=generalized_power_law,
+            prior=prior,
+            maxit=10000,
+        )
+
+        quality = _calculate_fit_quality(fit, x_data, y_data)
+
+        logger.info(
+            f"    Generalized power law fit: K={fit.p['K']}, b={fit.p['b']}, "
+            f"r={fit.p['r']}, p={fit.p['p']}"
+        )
+        logger.info(
+            f"    Fit quality: R²={quality['r_squared']:.3f}, "
+            f"χ²/dof={quality['chi2_reduced']:.3f}, Q={quality['q_value']:.3f}"
+        )
+
+        # The bracket must stay positive at the target for a real result
+        bracket = 1 / (derived_bare_mass - fit.p["b"]) + fit.p["r"]
+        if float(gv.mean(derived_bare_mass)) <= float(gv.mean(fit.p["b"])) or (
+            float(gv.mean(bracket)) <= 0
+        ):
+            logger.warning(
+                "    ⚠ Generalized power law undefined at derived bare mass, "
+                "no extrapolation"
+            )
+            return None
+
+        extrapolated_cost = generalized_power_law(derived_bare_mass, fit.p)
+
+        logger.info(
+            f"    Generalized power law extrapolated cost: "
+            f"{extrapolated_cost} core-hours"
+        )
+
+        result = {
+            "power_fit_extrapolated_cost_mean": float(gv.mean(extrapolated_cost)),
+            "power_fit_extrapolated_cost_error": float(gv.sdev(extrapolated_cost)),
+        }
+        for name in ("K", "b", "r", "p"):
+            result[f"power_fit_param_{name}_mean"] = float(gv.mean(fit.p[name]))
+            result[f"power_fit_param_{name}_error"] = float(gv.sdev(fit.p[name]))
+        result.update(
+            {
+                "power_fit_r_squared": quality["r_squared"],
+                "power_fit_chi2_reduced": quality["chi2_reduced"],
+                "power_fit_q_value": quality["q_value"],
+            }
+        )
+
+        return result
+
+    except Exception as e:
+        logger.warning(f"    ✗ Generalized power law fit failed: {e}")
         return None
 
 

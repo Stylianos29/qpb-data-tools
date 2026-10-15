@@ -97,6 +97,24 @@ EXTRAPOLATION_LINES_STYLE = {
 }
 
 # =============================================================================
+# GENERALIZED POWER LAW (DIAGNOSTIC) FIT STYLING
+# =============================================================================
+
+GENERALIZED_POWER_LAW_PLOT_CONFIG = {
+    # Whether to draw the generalized power law fit (line, extrapolation
+    # marker, and its own legend box) on cost plots. The fit is still
+    # computed and written to the results CSV regardless of this flag
+    # (controlled upstream by "enable_generalized_power_law_fit" in
+    # _cost_extrapolation_shared_config.py); this only controls whether
+    # it is plotted.
+    "show_generalized_power_law_fit": True,
+    "color": "#7D3C98",  # Purple
+    "linestyle": "--",
+    "marker": "s",  # Square, to tell it apart from the main extrapolation
+    "legend_gap": 0.02,  # Axes-fraction gap below the main legend
+}
+
+# =============================================================================
 # LEGEND CONFIGURATION
 # =============================================================================
 
@@ -288,6 +306,23 @@ RESULTS_COLUMN_MAPPING = {
         "chi2_reduced": "cost_fit_chi2_reduced",
         "q_value": "cost_fit_q_value",
     },
+    # Generalized power law (diagnostic) fit results:
+    # K * [1/(x-b) + r]^p
+    "power_fit": {
+        "param_K_mean": "power_fit_param_K_mean",
+        "param_K_error": "power_fit_param_K_error",
+        "param_b_mean": "power_fit_param_b_mean",
+        "param_b_error": "power_fit_param_b_error",
+        "param_r_mean": "power_fit_param_r_mean",
+        "param_r_error": "power_fit_param_r_error",
+        "param_p_mean": "power_fit_param_p_mean",
+        "param_p_error": "power_fit_param_p_error",
+        "r_squared": "power_fit_r_squared",
+        "chi2_reduced": "power_fit_chi2_reduced",
+        "q_value": "power_fit_q_value",
+        "extrapolated_cost_mean": "power_fit_extrapolated_cost_mean",
+        "extrapolated_cost_error": "power_fit_extrapolated_cost_error",
+    },
     # Derived quantities
     "derived_bare_mass_mean": "derived_bare_mass_mean",
     "derived_bare_mass_error": "derived_bare_mass_error",
@@ -334,6 +369,22 @@ def get_extrapolation_marker_style() -> Dict[str, Any]:
 def get_extrapolation_lines_style() -> Dict[str, Any]:
     """Get extrapolation lines styling."""
     return EXTRAPOLATION_LINES_STYLE.copy()
+
+
+def get_generalized_power_law_plot_config() -> Dict[str, Any]:
+    """Get generalized power law (diagnostic) fit plotting configuration."""
+    return GENERALIZED_POWER_LAW_PLOT_CONFIG.copy()
+
+
+def should_show_generalized_power_law_fit() -> bool:
+    """
+    Whether cost plots should draw the generalized power law fit.
+
+    This only controls plotting; the fit itself is computed upstream
+    (see "enable_generalized_power_law_fit" in
+    _cost_extrapolation_shared_config.py).
+    """
+    return GENERALIZED_POWER_LAW_PLOT_CONFIG["show_generalized_power_law_fit"]
 
 
 def get_legend_config(plot_type: str = "mass_fit") -> Dict[str, Any]:
