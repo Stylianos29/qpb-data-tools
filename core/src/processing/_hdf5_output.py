@@ -35,7 +35,10 @@ from library.visualization.builders.filename_builder import PlotFilenameBuilder
 from library.constants import FILENAME_LABELS_BY_COLUMN_NAME
 
 # Import from auxiliary modules
-from src.processing._jackknife_config import get_dataset_description
+from src.processing._jackknife_config import (
+    get_dataset_description,
+    GROUPING_PARAMETERS,
+)
 
 
 # ==============================================================================
@@ -860,6 +863,20 @@ def _create_custom_hdf5_output(
                     )
                     continue
 
+                # Parameters excluded from grouping may vary within a
+                # group, so they are left out of the group name and
+                # attributes rather than labelled by the first file
+                group_multivalued_names = [
+                    p
+                    for p in param_classification.multivalued_tunable_names
+                    if p not in GROUPING_PARAMETERS
+                ]
+                processed_params = {
+                    k: v
+                    for k, v in processed_params.items()
+                    if k not in GROUPING_PARAMETERS
+                }
+
                 # Generate descriptive group name Combine constant and
                 # multivalued parameters for complete metadata
                 complete_metadata = {
@@ -869,7 +886,7 @@ def _create_custom_hdf5_output(
 
                 group_name = _generate_group_name(
                     processed_params=complete_metadata,  # Pass combined metadata
-                    multivalued_tunable_names=param_classification.multivalued_tunable_names,
+                    multivalued_tunable_names=group_multivalued_names,
                     filename_builder=filename_builder,
                     logger=logger,
                 )
@@ -882,7 +899,7 @@ def _create_custom_hdf5_output(
                 _store_group_parameters(
                     jackknife_group=jackknife_group,
                     processed_params=processed_params,
-                    multivalued_tunable_names=param_classification.multivalued_tunable_names,
+                    multivalued_tunable_names=group_multivalued_names,
                     mpi_geometry_storage=param_classification.mpi_geometry_storage,
                     logger=logger,
                 )

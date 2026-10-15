@@ -28,6 +28,7 @@ DEFAULT_DERIVATIVE_METHOD = DerivativeMethod.FOURTH_ORDER
 GROUPING_PARAMETERS = [
     "Configuration_label",  # Used as fundamental sampling unit - never group by individual configs
     "MPI_geometry",  # Optional: affects computation speed but not physics
+    "Delta_Min", # Optional
 ]
 
 # Note: Remove "MPI_geometry" from this list if you want to separate

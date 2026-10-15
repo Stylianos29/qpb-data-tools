@@ -14,22 +14,12 @@ from typing import List, Dict, Any
 # GROUPING PARAMETERS
 # =============================================================================
 
-# Parameters used to group data for separate analysis Each unique
-# combination of these parameters gets its own fit
-GROUPING_PARAMETERS = [
-    "beta",
-    "volume_label",
-    "kappa_critical",
-    "Kernel_operator_type",
-    "Overlap_operator_method",
-    "KL_diagonal_order",
-]
-
 # Parameters excluded from grouping (averaged over instead)
 GROUPING_EXCLUDED_PARAMETERS = [
     "Configuration_label",  # Always average across configurations
     "Bare_mass",  # This is our independent variable
     "Kappa_value",
+    "Delta_Min",
 ]
 
 
@@ -174,11 +164,6 @@ ERROR_HANDLING = {
 # =============================================================================
 
 
-def get_grouping_parameters() -> List[str]:
-    """Get list of parameters for data grouping."""
-    return GROUPING_PARAMETERS.copy()
-
-
 def get_grouping_excluded_parameters() -> List[str]:
     """Get list of parameters excluded from grouping."""
     return GROUPING_EXCLUDED_PARAMETERS.copy()
@@ -246,13 +231,6 @@ def validate_shared_cost_config():
     Raises:
         ValueError: If configuration is invalid
     """
-    # Validate grouping parameters
-    if not isinstance(GROUPING_PARAMETERS, list):
-        raise ValueError("GROUPING_PARAMETERS must be a list")
-
-    if not GROUPING_PARAMETERS:
-        raise ValueError("GROUPING_PARAMETERS cannot be empty")
-
     # Validate filtering parameters
     if FILTERING_PARAMETERS["max_bare_mass"] <= 0:
         raise ValueError("max_bare_mass must be positive")
