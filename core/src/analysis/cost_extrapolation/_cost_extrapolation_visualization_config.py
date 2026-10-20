@@ -71,6 +71,8 @@ FIT_LINE_STYLE = {
     "linestyle": "-",
     "alpha": 0.8,
     "color": "red",
+    "extrapolation_linestyle": "--",  # Beyond the fitting range
+    "band_alpha": 0.2,  # ±1σ fit uncertainty band
 }
 
 # =============================================================================
@@ -86,14 +88,19 @@ EXTRAPOLATION_MARKER_STYLE = {
     "edge_width": 2,
     "alpha": 0.8,
     "zorder": 10,  # Draw on top
+    # Error bar
+    "capsize": 5,
+    "capthick": 1.5,
+    "error_linewidth": 1.5,
 }
 
-# Vertical/horizontal lines for extrapolation
+# Vertical line marking the derived bare mass
 EXTRAPOLATION_LINES_STYLE = {
     "linewidth": 1.5,
     "linestyle": "--",
-    "color": "green",
+    "color": "darkorange",
     "alpha": 0.6,
+    "band_alpha": 0.2,  # ±1σ band around the derived bare mass
 }
 
 # =============================================================================
@@ -201,6 +208,9 @@ FIT_LINE_EXTENSION = {
     "mass_fit_x_max_factor": 1.05,  # 5% beyond max data on right
     "cost_fit_x_min_factor": 0.95,  # 5% before min data
     "cost_fit_x_max_factor": 1.05,  # 5% beyond max data
+    # Left of the derived bare mass, as a fraction of the distance
+    # between it and the upper end of the cost fitting range
+    "cost_fit_extrapolation_margin": 0.02,
 }
 
 # =============================================================================
@@ -302,6 +312,9 @@ RESULTS_COLUMN_MAPPING = {
         "param_b_error": "cost_fit_param_b_error",
         "param_c_mean": "cost_fit_param_c_mean",
         "param_c_error": "cost_fit_param_c_error",
+        "param_corr_ab": "cost_fit_param_corr_ab",
+        "param_corr_ac": "cost_fit_param_corr_ac",
+        "param_corr_bc": "cost_fit_param_corr_bc",
         "r_squared": "cost_fit_r_squared",
         "chi2_reduced": "cost_fit_chi2_reduced",
         "q_value": "cost_fit_q_value",

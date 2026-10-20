@@ -874,6 +874,10 @@ def fit_and_extrapolate_cost(
 
         logger.info(f"    Extrapolated cost: {extrapolated_cost} core-hours")
 
+        # Parameter correlations, needed downstream to propagate the fit
+        # uncertainty into an error band (a, b, c are strongly correlated)
+        param_corr = gv.evalcorr([fit.p["a"], fit.p["b"], fit.p["c"]])
+
         # Build result dictionary
         result = {
             "Extrapolated_cost": (
@@ -886,6 +890,9 @@ def fit_and_extrapolate_cost(
             "cost_fit_param_b_error": float(gv.sdev(fit.p["b"])),
             "cost_fit_param_c_mean": float(gv.mean(fit.p["c"])),
             "cost_fit_param_c_error": float(gv.sdev(fit.p["c"])),
+            "cost_fit_param_corr_ab": float(param_corr[0, 1]),
+            "cost_fit_param_corr_ac": float(param_corr[0, 2]),
+            "cost_fit_param_corr_bc": float(param_corr[1, 2]),
             "cost_fit_r_squared": quality["r_squared"],
             "cost_fit_chi2_reduced": quality["chi2_reduced"],
             "cost_fit_q_value": quality["q_value"],

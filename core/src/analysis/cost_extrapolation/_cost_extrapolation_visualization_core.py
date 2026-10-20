@@ -11,6 +11,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import gvar as gv
 import matplotlib
 
 matplotlib.use("Agg")
@@ -31,6 +32,7 @@ from src.analysis.cost_extrapolation._cost_extrapolation_visualization_config im
     get_fit_line_style,
     get_extrapolation_marker_style,
     get_extrapolation_lines_style,
+    get_fit_line_extension,
     get_legend_config,
     get_axis_labels,
     get_title_styling,
@@ -732,16 +734,32 @@ def create_cost_fit_plot(
     chi2_reduced = results_row[col_mapping["cost_fit"]["chi2_reduced"]]
     q_value = results_row[col_mapping["cost_fit"]["q_value"]]
 
-    # Create fit line
-    x_fit = np.linspace(x_data.min() * 0.95, x_data.max() * 1.05, 200)
-    # Avoid singularity
-    x_fit = x_fit[np.abs(x_fit - b) > 1e-6]
-    y_fit = a / (x_fit - b) + c
-
     # Add fitting range markers from results
     cost_fit_min = results_row.get("cost_fit_range_min", x_data.min())
     cost_fit_max = results_row.get("cost_fit_range_max", x_data.max())
     _add_fitting_range_markers(ax, cost_fit_min, cost_fit_max)
+
+    # Fit line spans from just left of the derived bare mass to just
+    # right of the fitting range: dashed in the extrapolation region,
+    # solid within the fitting range
+    derived_bare_mass = results_row[col_mapping["derived_bare_mass_mean"]]
+    derived_bare_mass_error = results_row[col_mapping["derived_bare_mass_error"]]
+
+    line_extension = get_fit_line_extension()
+    x_start = min(
+        derived_bare_mass
+        - line_extension["cost_fit_extrapolation_margin"]
+        * (cost_fit_max - derived_bare_mass),
+        x_data.min() * line_extension["cost_fit_x_min_factor"],
+    )
+    x_end = cost_fit_max * line_extension["cost_fit_x_max_factor"]
+
+    x_extrap = np.linspace(x_start, cost_fit_min, 50)
+    x_in_range = np.linspace(cost_fit_min, x_end, 200)
+    # Avoid singularity
+    x_extrap = x_extrap[x_extrap - b > 1e-6]
+    x_in_range = x_in_range[x_in_range - b > 1e-6]
+    x_fit = np.concatenate([x_extrap, x_in_range[1:]])
 
     # Create detailed fit label
     cost_equation = format_shifted_power_law_equation(
@@ -769,37 +787,76 @@ def create_cost_fit_plot(
     fit_style["color"] = analysis_cfg["fit_color"]
 
     ax.plot(
-        x_fit,
-        y_fit,
+        x_in_range,
+        a / (x_in_range - b) + c,
         color=fit_style["color"],
         linewidth=fit_style["linewidth"],
         linestyle=fit_style["linestyle"],
         label=fit_label,
     )
+    ax.plot(
+        x_extrap,
+        a / (x_extrap - b) + c,
+        color=fit_style["color"],
+        linewidth=fit_style["linewidth"],
+        linestyle=fit_style["extrapolation_linestyle"],
+    )
+
+    # ±1σ fit uncertainty band (omitted for older CSVs without the
+    # parameter correlations)
+    fit_params = _build_cost_fit_params(results_row, col_mapping["cost_fit"])
+    if fit_params is not None:
+        y_band = fit_params[0] / (x_fit - fit_params[1]) + fit_params[2]
+        ax.fill_between(
+            x_fit,
+            gv.mean(y_band) - gv.sdev(y_band),
+            gv.mean(y_band) + gv.sdev(y_band),
+            color=fit_style["color"],
+            alpha=fit_style["band_alpha"],
+            linewidth=0,
+            zorder=1,
+        )
+    else:
+        logger.warning(
+            "  Cost fit parameter correlations missing from results; "
+            "skipping fit uncertainty band"
+        )
 
     # Mark extrapolation point
-    derived_bare_mass = results_row[col_mapping["derived_bare_mass_mean"]]
     extrapolated_cost_tuple = results_row[col_mapping["extrapolated_cost"]]
     extrapolated_cost = extrapolated_cost_tuple[0]
     extrapolated_cost_error = extrapolated_cost_tuple[1]
 
     extrap_marker = get_extrapolation_marker_style()
 
-    ax.plot(
+    ax.errorbar(
         derived_bare_mass,
         extrapolated_cost,
-        marker=extrap_marker["marker"],
+        yerr=extrapolated_cost_error,
+        fmt=extrap_marker["marker"],
         markersize=extrap_marker["marker_size"],
         color=extrap_marker["color"],
         markeredgecolor=extrap_marker["edge_color"],
         markeredgewidth=extrap_marker["edge_width"],
+        capsize=extrap_marker["capsize"],
+        capthick=extrap_marker["capthick"],
+        elinewidth=extrap_marker["error_linewidth"],
         alpha=extrap_marker["alpha"],
         zorder=extrap_marker["zorder"],
         label=f"Extrapolation: {extrapolated_cost:.1f} ± {extrapolated_cost_error:.1f} core-hrs",
     )
 
-    # Add extrapolation guide lines
+    # Mark the derived bare mass, with its uncertainty band behind
     extrap_lines = get_extrapolation_lines_style()
+
+    ax.axvspan(
+        derived_bare_mass - derived_bare_mass_error,
+        derived_bare_mass + derived_bare_mass_error,
+        color=extrap_lines["color"],
+        alpha=extrap_lines["band_alpha"],
+        linewidth=0,
+        zorder=1,
+    )
 
     ax.axvline(
         derived_bare_mass,
@@ -809,17 +866,9 @@ def create_cost_fit_plot(
         alpha=extrap_lines["alpha"],
     )
 
-    ax.axhline(
-        extrapolated_cost,
-        color=extrap_lines["color"],
-        linestyle=extrap_lines["linestyle"],
-        linewidth=extrap_lines["linewidth"],
-        alpha=extrap_lines["alpha"],
-    )
-
     # Generalized power law (diagnostic) fit, if available
     power_fit_handles = _add_generalized_power_law_fit(
-        ax, results_row, x_fit, cost_fit_min, cost_fit_max, derived_bare_mass
+        ax, results_row, x_in_range, cost_fit_min, cost_fit_max, derived_bare_mass
     )
 
     # Add sample count annotations (using mass data) Match by bare mass
@@ -904,6 +953,31 @@ def create_cost_fit_plot(
 # =============================================================================
 # HELPER FUNCTIONS FOR PLOT ELEMENTS
 # =============================================================================
+
+
+def _build_cost_fit_params(results_row, cost_fit_cols) -> Optional[np.ndarray]:
+    """
+    Rebuild the correlated shifted power law parameters (a, b, c) as
+    gvars from their means, errors and pairwise correlations.
+
+    Returns:
+        Array of the three gvars, or None when any of the needed values
+        is absent from the results (older CSV)
+    """
+    keys = [f"param_{n}_{s}" for n in "abc" for s in ("mean", "error")]
+    keys += ["param_corr_ab", "param_corr_ac", "param_corr_bc"]
+    values = {key: results_row.get(cost_fit_cols[key]) for key in keys}
+    if any(v is None or pd.isna(v) for v in values.values()):
+        return None
+
+    means = [values[f"param_{n}_mean"] for n in "abc"]
+    errors = np.array([values[f"param_{n}_error"] for n in "abc"])
+    corr = np.eye(3)
+    corr[0, 1] = corr[1, 0] = values["param_corr_ab"]
+    corr[0, 2] = corr[2, 0] = values["param_corr_ac"]
+    corr[1, 2] = corr[2, 1] = values["param_corr_bc"]
+
+    return gv.gvar(means, np.outer(errors, errors) * corr)
 
 
 def _add_generalized_power_law_fit(
