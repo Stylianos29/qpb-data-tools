@@ -105,7 +105,7 @@ COST_FIT_CONFIG = {
 # ~0), p = CG convergence exponent (1 for the worst-case bound). K and
 # p are fitted through their logarithms, which keeps them positive.
 GENERALIZED_POWER_LAW_FIT_CONFIG = {
-    "enable_generalized_power_law_fit": True,
+    "enable_generalized_power_law_fit": False,
     "priors": {
         # log(K) is centred on max_cost * min_bare_mass (the amplitude
         # for p=1, b=0); the width is a factor of e^width either way

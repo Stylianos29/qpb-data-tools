@@ -629,7 +629,7 @@ def create_mass_fit_plot(
         tunable_params=group_info["all_tunable_params"],
         excluded=set(TITLE_EXCLUDED_PARAMETERS),
         leading_substring="Critical Bare Mass Extrapolation at Fixed Plateau Mass:",
-        wrapping_length=80,
+        wrapping_length=title_style["wrapping_length"],
     )
     ax.set_title(title, fontsize=title_style["fontsize"], pad=title_style["pad"])
 
@@ -910,7 +910,7 @@ def create_cost_fit_plot(
         tunable_params=group_info["all_tunable_params"],
         excluded=set(TITLE_EXCLUDED_PARAMETERS),
         leading_substring="Cost Extrapolation at Fixed Bare Mass:",
-        wrapping_length=80,
+        wrapping_length=title_style["wrapping_length"],
     )
     ax.set_title(title, fontsize=title_style["fontsize"], pad=title_style["pad"])
 
@@ -1070,9 +1070,7 @@ def _add_secondary_legend_below(fig, ax, main_legend, handles, legend_cfg):
 
     # The main legend's extent is only known after a draw
     fig.canvas.draw()
-    main_bbox = main_legend.get_window_extent().transformed(
-        ax.transAxes.inverted()
-    )
+    main_bbox = main_legend.get_window_extent().transformed(ax.transAxes.inverted())
 
     secondary_cfg = {k: v for k, v in legend_cfg.items() if k != "loc"}
     ax.add_artist(main_legend)

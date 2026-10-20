@@ -167,6 +167,7 @@ AXIS_STYLING = {
 TITLE_STYLING = {
     "fontsize": 14,
     "pad": 10,  # Vertical space between title and plot
+    "wrapping_length": 140,  # Max characters per title line before wrapping
 }
 
 # =============================================================================
