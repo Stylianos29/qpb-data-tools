@@ -220,9 +220,9 @@ class ParameterTransformationEngine:
 
         # Iterate over index directly instead of using iterrows()
         for idx in self.dataframe.index:
-            overlap_method = self.dataframe.loc[idx, "Overlap_operator_method"]
+            overlap_method = self.dataframe.at[idx, "Overlap_operator_method"]
             main_program_type = (
-                self.dataframe.loc[idx, "Main_program_type"]
+                self.dataframe.at[idx, "Main_program_type"]
                 if "Main_program_type" in self.dataframe.columns
                 else ""
             )
@@ -1368,14 +1368,13 @@ class AnalysisCaseProcessor:
         output_column = config["output_column"]
 
         if "Total_overhead_time" in self.dataframe.columns:
-            # Use formula with overhead
+            # Exclude overhead from the average (reported separately as
+            # Overhead_core_hours)
             if analysis_case == "forward_operator_applications":
                 self.dataframe[output_column] = (
                     self.dataframe["Total_calculation_time"]
                     - self.dataframe["Total_overhead_time"]
-                ) / self.dataframe["Number_of_vectors"] + self.dataframe[
-                    "Total_overhead_time"
-                ]
+                ) / self.dataframe["Number_of_vectors"]
             else:  # inversions
                 self.dataframe[output_column] = (
                     self.dataframe["Total_calculation_time"]
@@ -1383,9 +1382,7 @@ class AnalysisCaseProcessor:
                 ) / (
                     self.dataframe["Number_of_spinors"]
                     * self.dataframe["Number_of_vectors"]
-                ) + self.dataframe[
-                    "Total_overhead_time"
-                ]
+                )
         else:
             # Use base formula (no overhead)
             if analysis_case == "forward_operator_applications":
