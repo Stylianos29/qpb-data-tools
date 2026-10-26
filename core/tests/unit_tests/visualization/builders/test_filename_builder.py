@@ -55,7 +55,7 @@ def complex_metadata():
 def kl_metadata():
     """Create metadata with KL method."""
     return {
-        "Overlap_operator_method": "KL",
+        "Overlap_operator_method": "Diagonal KL",
         "Kernel_operator_type": "Brillouin",
         "temperature": 250.0,
         "mass": 0.5,
@@ -154,8 +154,8 @@ class TestSpecialParameterHandling:
             kl_metadata, "mass_Vs_temp", multivalued_params
         )
 
-        # Should start with KL, then base name, then Brillouin
-        assert filename == "KL_mass_Vs_temp_Brillouin_T250p0_M0p5"
+        # Should start with Diagonal_KL, then base name, then Brillouin
+        assert filename == "Diagonal_KL_mass_Vs_temp_Brillouin_T250p0_M0p5"
 
     def test_build_bare_method(self, filename_builder):
         """Test building filename with Bare method."""
@@ -560,7 +560,7 @@ class TestParametrized:
         "method,kernel,expected_start",
         [
             ("Chebyshev", "Wilson", "Chebyshev_base_Wilson"),
-            ("KL", "Brillouin", "KL_base_Brillouin"),
+            ("Diagonal KL", "Brillouin", "Diagonal_KL_base_Brillouin"),
             ("Bare", "Wilson", "Bare_base_Wilson"),
             ("Bare", "Brillouin", "Bare_base_Brillouin"),
         ],

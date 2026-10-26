@@ -210,7 +210,7 @@ class PlotTitleBuilder:
                 terms = metadata.get("Number_of_Chebyshev_terms")
                 if terms is not None and "Number_of_Chebyshev_terms" not in excluded:
                     components.append("N=" + str(terms))
-            elif overlap_method == "KL":
+            elif overlap_method == "Diagonal KL":
                 # Try method-specific parameter first
                 order = metadata.get("KL_diagonal_order")
                 param_excluded = "KL_diagonal_order" in excluded
@@ -222,7 +222,7 @@ class PlotTitleBuilder:
 
                 if order is not None and not param_excluded:
                     components.append("n=" + str(order))
-            elif overlap_method == "Neuberger":
+            elif overlap_method == "Upper-Diagonal KL":
                 # Try method-specific parameter first
                 order = metadata.get("Neuberger_order")
                 param_excluded = "Neuberger_order" in excluded

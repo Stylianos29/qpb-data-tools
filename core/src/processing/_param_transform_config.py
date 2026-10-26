@@ -21,8 +21,8 @@ based on Overlap_operator_method.
 """
 
 RATIONAL_ORDER_RESOLUTION_MAPPING = {
-    "KL": "KL_diagonal_order",
-    "Neuberger": "Neuberger_order",
+    "Diagonal KL": "KL_diagonal_order",
+    "Upper-Diagonal KL": "Neuberger_order",
     "Zolotarev": "Zolotarev_order",
 }
 
@@ -34,7 +34,8 @@ This configuration handles the resolution of ambiguous solver parameters
 parsed from log files into canonical names based on context.
 
 The resolution logic depends on two factors:
-    1. Overlap_operator_method: Bare, Chebyshev, KL, Neuberger,
+    1. Overlap_operator_method: Bare, Chebyshev, Diagonal KL,
+       Upper-Diagonal KL,
        Zolotarev
     2. Program type: invert vs non-invert (detected from
        Main_program_type)
@@ -78,30 +79,30 @@ SOLVER_PARAMETER_RESOLUTION_RULES = {
         "Generic_solver_max_iterations": "CG_max_iterations",
     },
     # =========================================================================
-    # KL METHOD
+    # DIAGONAL KL METHOD
     # =========================================================================
-    ("KL", False): {
-        # Non-invert KL: Generic → MSCG (inner/sign function)
+    ("Diagonal KL", False): {
+        # Non-invert Diagonal KL: Generic → MSCG (inner/sign function)
         "Generic_solver_epsilon": "MSCG_epsilon",
         "Generic_solver_max_iterations": "MSCG_max_iterations",
     },
-    ("KL", True): {
-        # Invert KL: Inner → MSCG, Outer → CG
+    ("Diagonal KL", True): {
+        # Invert Diagonal KL: Inner → MSCG, Outer → CG
         "Inner_solver_epsilon": "MSCG_epsilon",
         "Inner_solver_max_iterations": "MSCG_max_iterations",
         "Outer_solver_epsilon": "CG_epsilon",
         "Outer_solver_max_iterations": "CG_max_iterations",
     },
     # =========================================================================
-    # NEUBERGER METHOD
+    # UPPER-DIAGONAL KL METHOD
     # =========================================================================
-    ("Neuberger", False): {
-        # Non-invert Neuberger: Generic → MSCG (inner/sign function)
+    ("Upper-Diagonal KL", False): {
+        # Non-invert Upper-Diagonal KL: Generic → MSCG (inner/sign function)
         "Generic_solver_epsilon": "MSCG_epsilon",
         "Generic_solver_max_iterations": "MSCG_max_iterations",
     },
-    ("Neuberger", True): {
-        # Invert Neuberger: Inner → MSCG, Outer → CG
+    ("Upper-Diagonal KL", True): {
+        # Invert Upper-Diagonal KL: Inner → MSCG, Outer → CG
         "Inner_solver_epsilon": "MSCG_epsilon",
         "Inner_solver_max_iterations": "MSCG_max_iterations",
         "Outer_solver_epsilon": "CG_epsilon",

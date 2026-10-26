@@ -92,8 +92,8 @@ class ParameterTransformationEngine:
         used by each overlap operator method.
 
         **Resolution Mapping**:
-            - KL method: Rational_order → KL_diagonal_order
-            - Neuberger method: Rational_order → Neuberger_order
+            - Diagonal KL method: Rational_order → KL_diagonal_order
+            - Upper-Diagonal KL method: Rational_order → Neuberger_order
             - Zolotarev method: Rational_order → Zolotarev_order
             - Bare/Chebyshev: No resolution needed (doesn't use rational
               approximation)
@@ -121,7 +121,7 @@ class ParameterTransformationEngine:
             - The generic Rational_order column is removed later by
               _apply_column_operations()
             - Only applies to methods that use rational approximations
-              (KL, Neuberger, Zolotarev)
+              (Diagonal KL, Upper-Diagonal KL, Zolotarev)
         """
 
         if "Rational_order" not in self.dataframe.columns:
@@ -169,7 +169,7 @@ class ParameterTransformationEngine:
 
         **Resolution Strategy**:
 
-        For Zolotarev/KL/Neuberger overlap operators:
+        For Zolotarev/Diagonal KL/Upper-Diagonal KL overlap operators:
             - Inner_solver_* → MSCG_* (multi-shift CG for sign function)
             - Outer_solver_* → CG_* (conjugate gradient for full
               inversion)

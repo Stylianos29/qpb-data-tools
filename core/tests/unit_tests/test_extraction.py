@@ -12,7 +12,7 @@ def test_extract_parameters_values_from_filename_valid():
     extracted = extraction.extract_parameters_values_from_filename(filename)
 
     # Check that all expected parameters are extracted
-    assert extracted["Overlap_operator_method"] == "KL"
+    assert extracted["Overlap_operator_method"] == "Diagonal KL"
     assert extracted["Kernel_operator_type"] == "Brillouin"
     assert extracted["KL_scaling_factor"] == 1.0
     assert extracted["Rho_value"] == 1.0

@@ -55,7 +55,7 @@ def complex_metadata():
 def kl_metadata():
     """Create metadata with KL method."""
     return {
-        "Overlap_operator_method": "KL",
+        "Overlap_operator_method": "Diagonal KL",
         "Kernel_operator_type": "Brillouin",
         "KL_diagonal_order": 3,
         "temperature": 250.0,
@@ -152,8 +152,8 @@ class TestComplexTitleBuilding:
 
         title = title_builder.build(kl_metadata, tunable_params)
 
-        # Should start with KL Brillouin n=3 (updated expectation)
-        assert title.startswith("KL Brillouin n=3,")
+        # Should start with Diagonal KL Brillouin n=3 (updated expectation)
+        assert title.startswith("Diagonal KL Brillouin n=3,")
         assert "Temperature (K)=250.00" in title
         assert "Mass (GeV)=0.50" in title
 
@@ -387,7 +387,7 @@ class TestPrivateMethods:
     def test_overlap_kernel_parts_excluded(self, title_builder):
         """Test _overlap_kernel_parts with excluded parameters."""
         metadata = {
-            "Overlap_operator_method": "KL",
+            "Overlap_operator_method": "Diagonal KL",
             "Kernel_operator_type": "Brillouin",
             "KL_diagonal_order": 3,
         }
@@ -397,7 +397,7 @@ class TestPrivateMethods:
 
         assert len(parts) == 1
         # Fixed: expecting n=3 instead of just 3
-        assert parts[0] == "KL n=3,"  # No Brillouin
+        assert parts[0] == "Diagonal KL n=3,"  # No Brillouin
 
     def test_parameter_parts_basic(self, title_builder):
         """Test _parameter_parts with regular parameters."""
@@ -473,7 +473,7 @@ class TestParametrized:
         "method,kernel,expected_start",
         [
             ("Chebyshev", "Wilson", "Chebyshev Wilson"),
-            ("KL", "Brillouin", "KL Brillouin"),
+            ("Diagonal KL", "Brillouin", "Diagonal KL Brillouin"),
             ("Bare", "Wilson", "Bare Wilson"),
             ("Bare", "Brillouin", "Bare Brillouin"),
         ],

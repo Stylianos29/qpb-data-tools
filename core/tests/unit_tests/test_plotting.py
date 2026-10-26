@@ -16,7 +16,7 @@ def test_construct_plot_subtitle():
         "Kernel_operator_type": "Wilson",
         "Lattice_geometry": "(48,24,24,24)",
         "MSCG_epsilon": 1e-14,
-        "Overlap_operator_method": "KL",
+        "Overlap_operator_method": "Diagonal KL",
         "QCD_beta_value": 6.2,
         "Rho_value": 1.0,
         "Solver_epsilon": 1e-12,

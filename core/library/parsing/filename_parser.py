@@ -70,6 +70,7 @@ def _extract_parameters_with_regex(
         if match:
             raw_value = match.group(param_name)
             matched_segments.append(match.group(0))
+            raw_value = param_info.get("value_map", {}).get(raw_value, raw_value)
 
             # Convert to expected type
             converted_value = _convert_to_type(

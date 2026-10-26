@@ -7,7 +7,7 @@ kernel operator types used throughout the analysis pipeline.
 
 # Valid matrix sign function methods used in overlap operators
 OVERLAP_OPERATOR_METHODS = frozenset(
-    ["Bare", "Chebyshev", "KL", "Neuberger", "Zolotarev"]
+    ["Bare", "Chebyshev", "Diagonal KL", "Upper-Diagonal KL", "Zolotarev"]
 )
 
 # Valid Dirac operator types used as overlap provcedure kernels

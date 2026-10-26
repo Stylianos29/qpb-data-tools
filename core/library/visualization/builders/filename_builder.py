@@ -128,7 +128,7 @@ class PlotFilenameBuilder:
         # 1. Handle overlap operator method (gets special positioning)
         overlap_method = working_metadata.get("Overlap_operator_method")
         if overlap_method in self._special_overlap_methods:
-            filename_parts.append(overlap_method)
+            filename_parts.append(overlap_method.replace(" ", "_"))
             working_metadata.pop("Overlap_operator_method", None)
 
         # 2. Add base name (only if not empty)

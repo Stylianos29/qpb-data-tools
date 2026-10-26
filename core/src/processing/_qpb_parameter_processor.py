@@ -255,7 +255,13 @@ class QPBParameterProcessor:
                 "ordered": False,
             },
             "Overlap_operator_method": {
-                "categories": ["Chebyshev", "KL", "Bare", "Neuberger", "Zolotarev"],
+                "categories": [
+                    "Chebyshev",
+                    "Diagonal KL",
+                    "Bare",
+                    "Upper-Diagonal KL",
+                    "Zolotarev",
+                ],
                 "ordered": False,
             },
         }

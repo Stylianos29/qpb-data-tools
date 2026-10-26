@@ -24,7 +24,7 @@ def plotter(tmp_path):
     (Overlap_operator_method, Kernel_operator_type).
     """
     rows = []
-    for method in ["Chebyshev", "KL"]:
+    for method in ["Chebyshev", "Diagonal KL"]:
         for kernel in ["Wilson", "Brillouin"]:
             for n in [2, 4, 6]:
                 rows.append(
@@ -88,8 +88,8 @@ def test_dict_offset_is_resolved_per_group(plotter, monkeypatch):
     assert recorded[("Chebyshev", "Wilson")] == (0, 12)
     assert recorded[("Chebyshev", "Brillouin")] == (0, -18)
     # Groups not in the dict fall back to the default
-    assert recorded[("KL", "Wilson")] == (0, 10)
-    assert recorded[("KL", "Brillouin")] == (0, 10)
+    assert recorded[("Diagonal KL", "Wilson")] == (0, 10)
+    assert recorded[("Diagonal KL", "Brillouin")] == (0, 10)
 
 
 def test_dict_offset_via_per_figure_overrides(plotter, monkeypatch):

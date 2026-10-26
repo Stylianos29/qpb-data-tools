@@ -10,6 +10,8 @@ FILENAME_SCALAR_PATTERNS_DICTIONARY = {
     "Overlap_operator_method": {
         "pattern": r"(?P<Overlap_operator_method>Chebyshev|KL|Bare|Neuberger|Zolotarev)",
         "type": str,
+        # Filename labels are mapped to precise method names
+        "value_map": {"KL": "Diagonal KL", "Neuberger": "Upper-Diagonal KL"},
     },
     "Kernel_operator_type": {
         "pattern": r"(?P<Kernel_operator_type>Standard|Brillouin)",

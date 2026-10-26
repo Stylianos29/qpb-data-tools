@@ -129,7 +129,7 @@ def test_unique_value_columns_dictionary():
         "Number_of_spinors": np.int64(12),
         "KL_diagonal_order": np.int64(1),
         "KL_scaling_factor": np.float64(1.0),
-        "Overlap_operator_method": "KL",
+        "Overlap_operator_method": "Diagonal KL",
         "Temporal_lattice_size": np.int64(48),
         "Spatial_lattice_size": np.int64(24),
         "Number_of_vectors": np.int64(1),
