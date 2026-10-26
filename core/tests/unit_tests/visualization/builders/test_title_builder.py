@@ -535,3 +535,52 @@ class TestParametrized:
 if __name__ == "__main__":
     # Run all tests
     pytest.main([__file__, "-v"])
+
+
+class TestOutputQuantities:
+    """Tests for output quantities appended to the title."""
+
+    def test_output_quantities_appended(self, title_builder, simple_metadata):
+        title = title_builder.build(
+            simple_metadata,
+            ["temperature"],
+            output_quantities={"Condition_number": 12.3456},
+        )
+        assert title.endswith("Condition_number=12.35")
+
+    def test_output_quantities_before_additional_text(self, title_builder):
+        title = title_builder.build(
+            {"Additional_text": "note"},
+            ["Additional_text"],
+            output_quantities={"Condition_number": 4.0},
+        )
+        assert title == "Condition_number=4.00, note"
+
+
+class TestEmboldenMath:
+    """Tests for bolding mathtext segments of bold titles."""
+
+    def test_plain_text_unchanged(self):
+        assert PlotTitleBuilder.embolden_math("Wilson Kernel, N=5") == (
+            "Wilson Kernel, N=5"
+        )
+
+    def test_condition_number_label(self):
+        result = PlotTitleBuilder.embolden_math(r"$\kappa_{\mathbb{X}^2}$=29.66")
+        assert result == (
+            r"$\boldsymbol{\kappa}_{\mathbb{X}^\mathbf{2}}$=29.66"
+        )
+
+    def test_text_becomes_mathbf(self):
+        result = PlotTitleBuilder.embolden_math(r"$\epsilon_{\text{MSCG}}$")
+        assert result == r"$\boldsymbol{\epsilon}_{\mathbf{MSCG}}$"
+
+    def test_unparseable_segment_kept(self):
+        # A segment that does not parse after conversion is left as-is
+        assert PlotTitleBuilder.embolden_math(r"$\frac{$") == r"$\frac{$"
+
+    def test_replace_blackboard(self):
+        result = PlotTitleBuilder.embolden_math(
+            r"$\kappa_{\mathbb{X}^2}$", replace_blackboard=True
+        )
+        assert result == r"$\boldsymbol{\kappa}_{\mathbf{X}^\mathbf{2}}$"

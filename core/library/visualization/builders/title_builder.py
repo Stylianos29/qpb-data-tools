@@ -1,5 +1,8 @@
 from typing import Optional
 import math
+import re
+
+from matplotlib.mathtext import MathTextParser
 
 from library.constants.data_types import PARAMETERS_WITH_EXPONENTIAL_FORMAT
 
@@ -66,6 +69,7 @@ class PlotTitleBuilder:
         leading_substring: Optional[str] = None,
         title_from_columns: Optional[list] = None,
         wrapping_length: int = 80,
+        output_quantities: Optional[dict] = None,
     ) -> str:
         """
         Build a plot title from metadata following the structured
@@ -92,6 +96,11 @@ class PlotTitleBuilder:
         wrapping_length : int, optional
             Maximum length before wrapping. Set to 0 to disable
             wrapping. Default is 80 characters.
+        output_quantities : dict, optional
+            Output quantities to append after the tunable parameters,
+            as {name: value}. The caller is responsible for ensuring
+            each value is representative of the whole plot (e.g. that
+            it is constant across the plotted data).
 
         Returns:
         --------
@@ -107,7 +116,14 @@ class PlotTitleBuilder:
         """
         # Shortcut for simple title from selected columns
         if title_from_columns:
-            return self._build_simple_title(metadata_dict, title_from_columns)
+            # Requested output quantities are shown even if not listed
+            output_quantities = output_quantities or {}
+            columns = list(title_from_columns) + [
+                q for q in output_quantities if q not in title_from_columns
+            ]
+            return self._build_simple_title(
+                {**metadata_dict, **output_quantities}, columns
+            )
 
         title_parts = []
         excluded = excluded or set()
@@ -121,7 +137,9 @@ class PlotTitleBuilder:
 
         # Add remaining tunable parameters
         title_parts.extend(
-            self._parameter_parts(metadata_dict, tunable_params, excluded)
+            self._parameter_parts(
+                metadata_dict, tunable_params, excluded, output_quantities
+            )
         )
 
         # Finalize title
@@ -254,7 +272,11 @@ class PlotTitleBuilder:
         return parts
 
     def _parameter_parts(
-        self, metadata: dict, tunable_params: list, excluded: set
+        self,
+        metadata: dict,
+        tunable_params: list,
+        excluded: set,
+        output_quantities: Optional[dict] = None,
     ) -> list:
         """
         Get title parts for remaining tunable parameters.
@@ -270,6 +292,9 @@ class PlotTitleBuilder:
             List of all tunable parameter names
         excluded : set
             Set of parameters to exclude
+        output_quantities : dict, optional
+            Output quantities {name: value} appended after the tunable
+            parameters (but before Additional_text)
 
         Returns:
         --------
@@ -312,6 +337,10 @@ class PlotTitleBuilder:
             label = self.title_labels.get(param_name, param_name)
             formatted_value = self._format_value(param_name, value)
             parts.append(f"{label}={formatted_value},")
+
+        for name, value in (output_quantities or {}).items():
+            label = self.title_labels.get(name, name)
+            parts.append(f"{label}={self._format_value(name, value)},")
 
         # Append Additional_text value (no label) after all other params
         if additional_text_part:
@@ -388,6 +417,60 @@ class PlotTitleBuilder:
             split_pos = min(comma_positions, key=lambda x: abs(x - len(title) // 2))
 
         return title[: split_pos + 1] + "\n" + title[split_pos + 1 :]
+
+    # Tokens inside a mathtext segment, in matching priority:
+    # \text{..} | kept as-is | operator names | commands | letters | digits
+    _MATH_TOKEN = re.compile(
+        r"\\text\{([^}]*)\}"
+        r"|(\\mathbb\{[^}]*\}|\\left.|\\right.)"
+        r"|\\(max|min|log|exp)\b"
+        r"|(\\[A-Za-z]+)"
+        r"|([A-Za-z])"
+        r"|([0-9]+)"
+    )
+    _math_parser = MathTextParser("path")
+
+    @classmethod
+    def embolden_math(cls, title: str, replace_blackboard: bool = False) -> str:
+        """
+        Make the mathtext segments of a title bold.
+
+        Matplotlib's weight="bold" does not apply to $...$ segments, so
+        labels like $\\kappa_{\\mathbb{X}^2}$ stay light in a bold
+        title. Each symbol is wrapped individually (\\boldsymbol for
+        letters and commands, \\mathbf for \\text{} and digits), since
+        mathtext's \\boldsymbol only bolds a single atom. Blackboard
+        letters have no bold glyphs and are left unchanged. A segment
+        that fails to parse after conversion is kept as it was.
+
+        If replace_blackboard is True, \\mathbb{..} is turned into
+        \\mathbf{..} so it is bold too, at the cost of changing the
+        symbol (e.g. 𝕏 becomes a bold X).
+        """
+
+        def bold_token(match):
+            text, keep, operator, command, letter, digits = match.groups()
+            if text is not None:
+                return r"\mathbf{" + text + "}"
+            if keep:
+                if replace_blackboard and keep.startswith(r"\mathbb"):
+                    return r"\mathbf" + keep[len(r"\mathbb") :]
+                return keep
+            if operator:
+                return r"\mathbf{" + operator + "}"
+            if command or letter:
+                return r"\boldsymbol{" + (command or letter) + "}"
+            return r"\mathbf{" + digits + "}"
+
+        def bold_segment(match):
+            candidate = "$" + cls._MATH_TOKEN.sub(bold_token, match.group(1)) + "$"
+            try:
+                cls._math_parser.parse(candidate)
+            except ValueError:
+                return match.group(0)
+            return candidate
+
+        return re.sub(r"\$(.+?)\$", bold_segment, title)
 
     def set_number_format(self, format_string: str) -> None:
         """

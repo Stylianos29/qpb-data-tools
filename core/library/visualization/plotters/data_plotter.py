@@ -214,11 +214,13 @@ class DataPlotter(DataFrameAnalyzer):
         custom_plot_titles_dict: Optional[Dict[Any, str]] = None,
         title_size: int = 15,
         bold_title: bool = False,
+        bold_title_replace_blackboard: bool = False,
         leading_plot_substring: Optional[str] = None,
         excluded_from_title_list: Optional[List[str]] = None,
         title_number_format: str = ".2f",
         title_exponential_format: str = ".0e",
         title_wrapping_length: int = 80,
+        title_output_quantities: Optional[List[str]] = None,
         # Advanced features
         customization_function: Optional[Callable[[Axes], None]] = None,
         post_plot_customization_function: Optional[Callable[..., None]] = None,
@@ -422,11 +424,13 @@ class DataPlotter(DataFrameAnalyzer):
             "custom_plot_titles_dict": custom_plot_titles_dict,
             "title_size": title_size,
             "bold_title": bold_title,
+            "bold_title_replace_blackboard": bold_title_replace_blackboard,
             "leading_plot_substring": leading_plot_substring,
             "excluded_from_title_list": excluded_from_title_list,
             "title_number_format": title_number_format,
             "title_exponential_format": title_exponential_format,
             "title_wrapping_length": title_wrapping_length,
+            "title_output_quantities": title_output_quantities,
             # Advanced
             "customization_function": customization_function,
             "post_plot_customization_function": post_plot_customization_function,
@@ -526,11 +530,13 @@ class DataPlotter(DataFrameAnalyzer):
             custom_plot_titles_dict = eff["custom_plot_titles_dict"]
             title_size = eff["title_size"]
             bold_title = eff["bold_title"]
+            bold_title_replace_blackboard = eff["bold_title_replace_blackboard"]
             leading_plot_substring = eff["leading_plot_substring"]
             excluded_from_title_list = eff["excluded_from_title_list"]
             title_number_format = eff["title_number_format"]
             title_exponential_format = eff["title_exponential_format"]
             title_wrapping_length = eff["title_wrapping_length"]
+            title_output_quantities = eff["title_output_quantities"]
             # Advanced
             customization_function = eff["customization_function"]
             post_plot_customization_function = eff["post_plot_customization_function"]
@@ -725,9 +731,17 @@ class DataPlotter(DataFrameAnalyzer):
                     title_number_format=title_number_format,
                     title_exponential_format=title_exponential_format,
                     title_wrapping_length=title_wrapping_length,
+                    title_output_quantities=title_output_quantities,
+                    group_df=group_df,
                 )
                 ax.set_title(
-                    title,
+                    (
+                        PlotTitleBuilder.embolden_math(
+                            title, replace_blackboard=bold_title_replace_blackboard
+                        )
+                        if bold_title
+                        else title
+                    ),
                     fontsize=title_size,
                     weight="bold" if bold_title else "normal",
                 )
@@ -1398,6 +1412,8 @@ class DataPlotter(DataFrameAnalyzer):
         title_number_format: str,
         title_exponential_format: str,
         title_wrapping_length: int,
+        title_output_quantities: Optional[List[str]] = None,
+        group_df: Optional[pd.DataFrame] = None,
     ) -> str:
         """Construct plot title using the title builder."""
         if custom_plot_title:
@@ -1442,6 +1458,20 @@ class DataPlotter(DataFrameAnalyzer):
         # Combine metadata with unique value columns
         full_metadata = {**metadata, **self.unique_value_columns_dictionary}
 
+        # Output quantities named in title_from_columns get the same
+        # uniqueness check as those in title_output_quantities
+        requested_quantities = list(title_output_quantities or [])
+        for col in title_from_columns or []:
+            if (
+                col in self.list_of_output_quantity_names_from_dataframe
+                and col not in requested_quantities
+            ):
+                requested_quantities.append(col)
+
+        output_quantities = self._resolve_title_output_quantities(
+            group_df, requested_quantities
+        )
+
         # Temporarily update title builder formatting
         original_number_format = self.title_builder.title_number_format
         original_exponential_format = self.title_builder.title_exponential_format
@@ -1457,6 +1487,7 @@ class DataPlotter(DataFrameAnalyzer):
                 leading_substring=leading_plot_substring,
                 title_from_columns=title_from_columns,
                 wrapping_length=title_wrapping_length,
+                output_quantities=output_quantities,
             )
         finally:
             # Restore original formatting
@@ -1464,6 +1495,70 @@ class DataPlotter(DataFrameAnalyzer):
             self.title_builder.title_exponential_format = original_exponential_format
 
         return result
+
+    # Output quantities requested in a title must agree to this many
+    # decimal places across every data point of the figure.
+    TITLE_OUTPUT_QUANTITY_DECIMALS = 2
+
+    def _resolve_title_output_quantities(
+        self,
+        group_df: Optional[pd.DataFrame],
+        quantity_names: Optional[List[str]],
+    ) -> Dict[str, float]:
+        """
+        Return {name: value} for output quantities requested in the
+        title, after checking each is constant across the figure's data.
+
+        An output quantity normally varies between data points, so it
+        may only appear in a title when the selected subset pins it down
+        (e.g. Condition_number for a single Configuration_label and
+        Kernel_operator_type). "Constant" means the spread max - min is
+        below half a unit in the last decimal place kept, so values that
+        differ only by numerical noise are accepted while genuinely
+        different values are rejected.
+
+        Raises:
+        -------
+        ValueError
+            If a quantity is not a column of the data, has no finite
+            values, or is not constant across the figure.
+        """
+        if not quantity_names:
+            return {}
+        if group_df is None:
+            raise ValueError(
+                "title_output_quantities requires the figure's data, "
+                "which is not available for this plot type."
+            )
+
+        tolerance = 0.5 * 10 ** (-self.TITLE_OUTPUT_QUANTITY_DECIMALS)
+        resolved = {}
+        for name in quantity_names:
+            if name not in group_df.columns:
+                raise ValueError(
+                    f"title_output_quantities: '{name}' is not a column "
+                    "of the plotted data."
+                )
+            values = pd.to_numeric(group_df[name], errors="coerce").to_numpy(
+                dtype=float
+            )
+            values = values[np.isfinite(values)]
+            if values.size == 0:
+                raise ValueError(
+                    f"title_output_quantities: '{name}' has no finite "
+                    "values in this figure."
+                )
+            spread = values.max() - values.min()
+            if spread >= tolerance:
+                raise ValueError(
+                    f"title_output_quantities: '{name}' is not constant "
+                    f"to {self.TITLE_OUTPUT_QUANTITY_DECIMALS} decimal "
+                    f"places across this figure (min={values.min()!r}, "
+                    f"max={values.max()!r}). Restrict the data so that "
+                    "it is unique, or drop it from the title."
+                )
+            resolved[name] = float(values.mean())
+        return resolved
 
     def _save_plot(
         self,
@@ -2442,7 +2537,7 @@ class DataPlotter(DataFrameAnalyzer):
                     title_wrapping_length=title_wrapping_length,
                 )
                 ax.set_title(
-                    title,
+                    (PlotTitleBuilder.embolden_math(title) if bold_title else title),
                     fontsize=title_size,
                     weight="bold" if bold_title else "normal",
                 )
@@ -2887,7 +2982,7 @@ class DataPlotter(DataFrameAnalyzer):
                     title_wrapping_length=title_wrapping_length,
                 )
                 ax.set_title(
-                    title,
+                    (PlotTitleBuilder.embolden_math(title) if bold_title else title),
                     fontsize=title_size,
                     weight="bold" if bold_title else "normal",
                 )
