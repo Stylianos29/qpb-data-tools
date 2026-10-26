@@ -244,7 +244,9 @@ class DataPlotter(DataFrameAnalyzer):
         annotation_fontsize: int = 8,
         annotation_boxstyle: str = "round,pad=0.3",
         annotation_alpha: float = 0.7,
-        annotation_offset: Tuple[float, float] = (0, 10),
+        annotation_offset: Union[
+            Tuple[float, float], Dict[Any, Tuple[float, float]]
+        ] = (0, 10),
         # Watermark
         watermark_text: Optional[str] = None,
         watermark_position: Optional[Union[str, Tuple[float, float]]] = None,
@@ -1178,7 +1180,7 @@ class DataPlotter(DataFrameAnalyzer):
                 capsize=kwargs.get("capsize", 5),
                 empty_markers=empty_marker,
                 include_interpolation=kwargs.get("include_interpolation", False),
-                annotation_params=self._extract_annotation_params(kwargs),
+                annotation_params=self._extract_annotation_params(kwargs, value),
             )
 
     def _create_individual_plot(
@@ -1215,7 +1217,7 @@ class DataPlotter(DataFrameAnalyzer):
             capsize=kwargs.get("capsize", 5),
             empty_markers=kwargs.get("empty_markers", False),
             include_interpolation=kwargs.get("include_interpolation", False),
-            annotation_params=self._extract_annotation_params(kwargs),
+            annotation_params=self._extract_annotation_params(kwargs, group_keys),
         )
 
     def _plot_single_group(
@@ -1714,8 +1716,19 @@ class DataPlotter(DataFrameAnalyzer):
 
         return " (fit applied)"
 
-    def _extract_annotation_params(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
-        """Extract annotation parameters from kwargs."""
+    def _extract_annotation_params(
+        self, kwargs: Dict[str, Any], group_key: Any = None
+    ) -> Dict[str, Any]:
+        """
+        Extract annotation parameters from kwargs.
+
+        ``annotation_offset`` may be a single (dx, dy) tuple or a dict
+        mapping group values (same keys as ``marker_color_map``) to
+        offsets; groups missing from the dict use the default (0, 10).
+        """
+        offset = kwargs.get("annotation_offset", (0, 10))
+        if isinstance(offset, dict):
+            offset = offset.get(group_key, (0, 10))
         return {
             "variable": kwargs.get("annotation_variable"),
             "label": kwargs.get("annotation_label", ""),
@@ -1723,7 +1736,7 @@ class DataPlotter(DataFrameAnalyzer):
             "fontsize": kwargs.get("annotation_fontsize", 8),
             "boxstyle": kwargs.get("annotation_boxstyle", "round,pad=0.3"),
             "alpha": kwargs.get("annotation_alpha", 0.7),
-            "offset": kwargs.get("annotation_offset", (0, 10)),
+            "offset": offset,
         }
 
     # Convenience methods for accessing managers
