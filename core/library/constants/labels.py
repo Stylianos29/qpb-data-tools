@@ -176,15 +176,15 @@ AXES_LABELS_BY_COLUMN_NAME = {
     # Pion effective mass observables
     # ---------------------------------------------------------------------------
     "Pion_effective_mass_estimate": "$a M_{\\pi}$",
-    "pion_effective_mass": r"$a M_{\pi}^{\mathrm{eff}}$",
+    "Pion_effective_mass": r"$a M_{\pi}^{\mathrm{eff}}$",
     "Pion_effective_mass_estimate_squared": "$a^2 M^2_{\\pi}$",
     "Jackknife_average_of_pion_effective_mass_correlator": "$a M_{\\pi}^{\\mathrm{eff}}(t)$",
-    "pion_effective_mass_jackknife_samples": "$a M_{\\pi}^{\\mathrm{eff}}(t)$",
-    "pion_effective_mass": "$a M_{\\pi}^{\\mathrm{eff}}(t)$",
-    "pion_plateau_mean": r"$a M_{\pi}$",
+    "Pion_effective_mass_jackknife_samples": "$a M_{\\pi}^{\\mathrm{eff}}(t)$",
+    "Pion_effective_mass": "$a M_{\\pi}^{\\mathrm{eff}}(t)$",
+    "Pion_plateau_mean": r"$a M_{\pi}$",
     "Plateau_pion_mass": r"$a M_{\pi}$",
-    "pion_plateau_error": r"$\sigma(a M_{\pi})$",
-    "pion_mass_squared": r"$a^2 M^2_{\pi}$",
+    "Pion_plateau_error": r"$\sigma(a M_{\pi})$",
+    "Pion_mass_squared": r"$a^2 M^2_{\pi}$",
     "Plateau_pion_mass_squared": r"$a^2 M^2_{\pi}$",
     # ---------------------------------------------------------------------------
     # Correlator observables
