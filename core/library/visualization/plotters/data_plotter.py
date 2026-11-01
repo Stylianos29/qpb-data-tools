@@ -115,6 +115,9 @@ class DataPlotter(DataFrameAnalyzer):
         self.zaxis_variable_name = None
         self.plots_base_name = None
 
+        # Set by the set_*_variables() methods and applied by _save_plot()
+        self._pending_clear_existing = False
+
         # Storage for recent plots (for inset functionality)
         self._last_plot_figures = {}
         self._last_plot_paths = {}
@@ -147,7 +150,10 @@ class DataPlotter(DataFrameAnalyzer):
         y_variable : str
             Column name for y-axis variable
         clear_existing : bool, optional
-            Whether to clear existing plot subdirectory
+            Whether to clear the existing plot subdirectory. The
+            subdirectory is cleared when the first plot is saved, so
+            that it is the one the plot actually goes to (which depends
+            on plot()'s output_prefix).
         """
         if x_variable not in self.dataframe.columns:
             raise ValueError(f"'{x_variable}' is not a column in the DataFrame.")
@@ -158,10 +164,8 @@ class DataPlotter(DataFrameAnalyzer):
         self.yaxis_variable_name = y_variable
         self.plots_base_name = f"{y_variable}_Vs_{x_variable}"
 
-        # Prepare subdirectory using file manager
-        self.individual_plots_subdirectory = self.file_manager.prepare_subdirectory(
-            self.plots_base_name, clear_existing=clear_existing
-        )
+        # The subdirectory is created (and cleared) by _save_plot()
+        self._pending_clear_existing = clear_existing
 
     def plot(
         self,
@@ -259,6 +263,7 @@ class DataPlotter(DataFrameAnalyzer):
         save_figure: bool = True,
         file_format: Optional[str] = None,
         include_combined_prefix: bool = False,
+        output_prefix: Optional[str] = None,
         verbose: bool = True,
     ) -> "DataPlotter":
         """
@@ -278,6 +283,15 @@ class DataPlotter(DataFrameAnalyzer):
             "jpg", "tiff", "ps".
 
             Examples: "pdf", "svg", "png"
+
+        output_prefix : str, optional
+            Text prepended to the saved plot's top-level folder and to
+            its filename, e.g. "Pade" saves to
+            "Pade_<y>_Vs_<x>/Grouped_by_<...>/Pade_<y>_Vs_<x>_...".
+            Use it to keep apart two plots of the same variables and
+            grouping that would otherwise get the same filename. Takes
+            precedence over include_combined_prefix. Default is None
+            (no prefix).
 
         target_ax : matplotlib.axes.Axes, optional
             If provided, plot on this existing axes instead of creating
@@ -462,6 +476,7 @@ class DataPlotter(DataFrameAnalyzer):
             "save_figure": save_figure,
             "file_format": file_format,
             "include_combined_prefix": include_combined_prefix,
+            "output_prefix": output_prefix,
         }
 
         # Process each group
@@ -568,6 +583,7 @@ class DataPlotter(DataFrameAnalyzer):
             save_figure = eff["save_figure"]
             file_format = eff["file_format"]
             include_combined_prefix = eff["include_combined_prefix"]
+            output_prefix = eff["output_prefix"]
 
             # Re-apply the two pre-loop transformations now that the
             # underlying values may have changed for this figure.
@@ -788,6 +804,7 @@ class DataPlotter(DataFrameAnalyzer):
                     grouping_variable=grouping_variable,
                     file_format=file_format,
                     include_combined_prefix=include_combined_prefix,
+                    output_prefix=output_prefix,
                 )
 
         return self
@@ -1568,6 +1585,7 @@ class DataPlotter(DataFrameAnalyzer):
         grouping_variable: Optional[Union[str, List[str]]],
         file_format: Optional[str] = None,
         include_combined_prefix: bool = False,
+        output_prefix: Optional[str] = None,
     ) -> None:
         """Save the plot using file manager and filename builder."""
 
@@ -1586,9 +1604,24 @@ class DataPlotter(DataFrameAnalyzer):
             include_combined_prefix=(
                 include_combined_prefix and grouping_variable is not None
             ),
+            custom_prefix=output_prefix,
         )
 
-        # Determine save directory
+        # Determine save directory. An output prefix also names the
+        # top-level folder, so prefixed plots stay apart from unprefixed
+        # plots of the same variables.
+        base_dirname = (
+            f"{output_prefix.rstrip('_')}_{self.plots_base_name}"
+            if output_prefix
+            else self.plots_base_name
+        )
+        # Apply a clear_existing requested by set_*_variables() here, once,
+        # to the folder actually written to
+        base_directory = self.file_manager.prepare_subdirectory(
+            base_dirname, clear_existing=self._pending_clear_existing
+        )
+        self._pending_clear_existing = False
+
         if grouping_variable:
             if isinstance(grouping_variable, str):
                 nested_dirname = f"Grouped_by_{grouping_variable}"
@@ -1596,11 +1629,12 @@ class DataPlotter(DataFrameAnalyzer):
                 nested_dirname = "Grouped_by_" + "_and_".join(grouping_variable)
 
             self.combined_plots_subdirectory = self.file_manager.prepare_subdirectory(
-                os.path.join(self.plots_base_name, nested_dirname)
+                os.path.join(base_dirname, nested_dirname)
             )
             save_directory = self.combined_plots_subdirectory
         else:
-            save_directory = self.individual_plots_subdirectory
+            self.individual_plots_subdirectory = base_directory
+            save_directory = base_directory
 
         # Get full path and save
         full_path = self.file_manager.plot_path(
@@ -1988,7 +2022,8 @@ class DataPlotter(DataFrameAnalyzer):
             Column name for the colour-mapped quantity. Must be numeric
             (plain numbers, (value, error) tuples, or gvar objects).
         clear_existing : bool, optional
-            Whether to clear the existing plot subdirectory.
+            Whether to clear the existing plot subdirectory, when the
+            first plot is saved.
 
         Raises:
         -------
@@ -2021,10 +2056,8 @@ class DataPlotter(DataFrameAnalyzer):
         self.zaxis_variable_name = value_variable
         self.plots_base_name = f"{value_variable}_Vs_{x_variable}_and_{y_variable}"
 
-        # Prepare subdirectory using file manager (reused by _save_plot)
-        self.individual_plots_subdirectory = self.file_manager.prepare_subdirectory(
-            self.plots_base_name, clear_existing=clear_existing
-        )
+        # The subdirectory is created (and cleared) by _save_plot()
+        self._pending_clear_existing = clear_existing
 
     def _coerce_numeric_value_series(self, series: pd.Series) -> pd.Series:
         """
@@ -2581,7 +2614,8 @@ class DataPlotter(DataFrameAnalyzer):
             tuples, or gvar objects; the latter two are reduced to their
             means before binning.
         clear_existing : bool, optional
-            Whether to clear the existing plot subdirectory.
+            Whether to clear the existing plot subdirectory, when the
+            first plot is saved.
 
         Raises:
         -------
@@ -2606,10 +2640,8 @@ class DataPlotter(DataFrameAnalyzer):
         self.zaxis_variable_name = None
         self.plots_base_name = f"{variable}_histogram"
 
-        # Prepare subdirectory using file manager (reused by _save_plot)
-        self.individual_plots_subdirectory = self.file_manager.prepare_subdirectory(
-            self.plots_base_name, clear_existing=clear_existing
-        )
+        # The subdirectory is created (and cleared) by _save_plot()
+        self._pending_clear_existing = clear_existing
 
     def _histogram_series_values(self, series: pd.Series) -> np.ndarray:
         """Reduce a column to the finite float values that get binned."""
