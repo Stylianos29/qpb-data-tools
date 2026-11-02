@@ -567,9 +567,7 @@ class TestEmboldenMath:
 
     def test_condition_number_label(self):
         result = PlotTitleBuilder.embolden_math(r"$\kappa_{\mathbb{X}^2}$=29.66")
-        assert result == (
-            r"$\boldsymbol{\kappa}_{\mathbb{X}^\mathbf{2}}$=29.66"
-        )
+        assert result == (r"$\boldsymbol{\kappa}_{\mathbb{X}^\mathbf{2}}$=29.66")
 
     def test_text_becomes_mathbf(self):
         result = PlotTitleBuilder.embolden_math(r"$\epsilon_{\text{MSCG}}$")

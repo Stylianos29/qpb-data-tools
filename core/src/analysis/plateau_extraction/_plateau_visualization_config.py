@@ -32,7 +32,7 @@ DEFAULT_DPI = 300
 
 Y_AXIS_LABEL_COLUMN_MAPPING = {
     "pcac_mass": "PCAC_plateau_mean",
-    "pion_mass": "pion_effective_mass",
+    "pion_mass": "Pion_plateau_mean",
 }
 
 # =============================================================================

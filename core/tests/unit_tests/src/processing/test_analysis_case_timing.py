@@ -67,9 +67,7 @@ def test_forward_average_excludes_overhead():
     )
     df = AnalysisCaseProcessor(df).process_analysis_cases()
 
-    assert df["Average_wall_clock_time_per_vector"].iloc[0] == pytest.approx(
-        450.0 / 3
-    )
+    assert df["Average_wall_clock_time_per_vector"].iloc[0] == pytest.approx(450.0 / 3)
     assert df["Average_core_hours_per_vector"].iloc[0] == pytest.approx(
         72 * 150.0 / 3600
     )

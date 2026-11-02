@@ -509,7 +509,7 @@ function main() {
                     fi
                     
                     # Execute with built arguments
-                    execute_python_script "$VIZ_SCRIPT" "visualize_correlator_analysis" \
+                    execute_python_script "$VIZ_SCRIPT" "visualize_plateau_extraction" \
                         "${viz_args[@]}"
                     
                     if [[ $? -eq 0 ]]; then
@@ -672,7 +672,7 @@ function main() {
                     fi
                     
                     # Execute with built arguments
-                    execute_python_script "$VIZ_SCRIPT" "visualize_correlator_analysis" \
+                    execute_python_script "$VIZ_SCRIPT" "visualize_plateau_extraction" \
                         "${viz_args[@]}"
                     
                     if [[ $? -eq 0 ]]; then

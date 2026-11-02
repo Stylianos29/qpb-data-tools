@@ -107,7 +107,7 @@ VISUALIZATION_CONFIG = {
 
 Y_AXIS_LABEL_COLUMN_MAPPING = {
     "pcac": "PCAC_plateau_mean",
-    "pion": "pion_mass_squared",
+    "pion": "Pion_mass_squared",
 }
 
 ANALYSIS_CONFIGS = {

@@ -609,7 +609,7 @@ def create_mass_fit_plot(
         fontsize=axis_labels["bare_mass"]["fontsize"],
     )
 
-    y_label_key = "pion_mass_squared" if analysis_type == "pion" else "pcac_mass"
+    y_label_key = "Pion_mass_squared" if analysis_type == "pion" else "pcac_mass"
     ax.set_ylabel(
         axis_labels[y_label_key]["label"],
         fontsize=axis_labels[y_label_key]["fontsize"],
