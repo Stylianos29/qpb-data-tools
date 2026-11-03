@@ -595,8 +595,8 @@ function run_stage_3_1() {
         return 0
     else
         # Check if core outputs exist despite failure
-        local pcac_output="${output_directory}/${PCAC_MASS_CSV_FILENAME}"
-        local pion_output="${output_directory}/${PION_MASS_CSV_FILENAME}"
+        local pcac_output="${output_directory}/${PCAC_MASS_HDF5_FILENAME}"
+        local pion_output="${output_directory}/${PION_MASS_HDF5_FILENAME}"
         
         if [[ -f "$pcac_output" ]] || [[ -f "$pion_output" ]]; then
             # Core analysis succeeded, likely visualization failed
