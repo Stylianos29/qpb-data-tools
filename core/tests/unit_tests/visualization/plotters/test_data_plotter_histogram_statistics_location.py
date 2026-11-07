@@ -59,7 +59,9 @@ def _statistics_text(plot_kwargs, plotter):
     )
     figures = plt.get_fignums()
     assert len(figures) == 1
-    texts = [t for t in plt.figure(figures[0]).axes[0].texts if "bins =" in t.get_text()]
+    texts = [
+        t for t in plt.figure(figures[0]).axes[0].texts if "bins =" in t.get_text()
+    ]
     assert len(texts) == 1
     return texts[0]
 
@@ -79,9 +81,7 @@ class TestStatisticsLocationPlacement:
             ("center", (0.5, 0.5), ("center", "center")),
         ],
     )
-    def test_box_placed_at_named_location(
-        self, plotter, location, position, alignment
-    ):
+    def test_box_placed_at_named_location(self, plotter, location, position, alignment):
         text = _statistics_text({"statistics_location": location}, plotter)
 
         assert text.get_position() == position
