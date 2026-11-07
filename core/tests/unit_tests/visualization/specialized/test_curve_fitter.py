@@ -114,6 +114,8 @@ class TestCurveFitterInitialization:
             "top right",
             "bottom left",
             "bottom right",
+            "top center",
+            "bottom center",
             "center",
         ]
 
@@ -122,6 +124,75 @@ class TestCurveFitterInitialization:
             position, alignment = curve_fitter.label_positions[pos]
             assert len(position) == 2  # (x, y) coordinates
             assert len(alignment) == 2  # (ha, va) alignment
+
+    def test_label_position_matplotlib_aliases(self, curve_fitter):
+        """Matplotlib-style names resolve to the same positions."""
+        positions = curve_fitter.label_positions
+        assert positions["upper center"] == positions["top center"]
+        assert positions["lower center"] == positions["bottom center"]
+        # Centred horizontally, anchored to the top/bottom edge
+        assert positions["top center"] == ((0.5, 0.95), ("center", "top"))
+        assert positions["bottom center"] == ((0.5, 0.05), ("center", "bottom"))
+
+
+class TestLabelPositionResolution:
+    """Unknown placement names must fail loudly, not fall back silently."""
+
+    def test_resolve_known_location(self, curve_fitter):
+        """Known names return the stored entry, aliases included."""
+        for name, entry in curve_fitter.label_positions.items():
+            assert curve_fitter.resolve_label_position(name) == entry
+
+    def test_resolve_unknown_location_raises(self, curve_fitter):
+        """The message names the option, the bad value and the valid names."""
+        with pytest.raises(ValueError) as excinfo:
+            curve_fitter.resolve_label_position("middle", "statistics_location")
+
+        message = str(excinfo.value)
+        assert "statistics_location" in message
+        assert "'middle'" in message
+        for name in curve_fitter.label_positions:
+            assert repr(name) in message
+
+    def test_resolve_unhashable_location_raises_value_error(self, curve_fitter):
+        """A non-string such as a list gets the same clear error."""
+        with pytest.raises(ValueError, match="Unknown label_location"):
+            curve_fitter.resolve_label_position(["top", "left"])
+
+    @pytest.mark.parametrize("location", ["Top Left", "top-left", "upper_center", ""])
+    def test_names_are_case_and_spelling_sensitive(self, curve_fitter, location):
+        """No fuzzy matching: near-misses are errors too."""
+        with pytest.raises(ValueError):
+            curve_fitter.resolve_label_position(location)
+
+    def test_apply_fit_raises_instead_of_warning(self, curve_fitter, mock_axes):
+        """
+        apply_fit downgrades fit failures to warnings; a mistyped
+        location is a usage error and must not be swallowed that way.
+        """
+        x = np.linspace(0, 10, 20)
+        y = 2.0 * x + 1.0
+
+        with pytest.raises(ValueError, match="fit_label_location"):
+            curve_fitter.apply_fit(
+                mock_axes, x, y, "linear", show_parameters=True, label_location="nope"
+            )
+
+        # Rejected before anything was drawn.
+        mock_axes.plot.assert_not_called()
+
+    def test_apply_fit_ignores_location_when_parameters_hidden(
+        self, curve_fitter, mock_axes
+    ):
+        """The location is unused with show_parameters=False, so not checked."""
+        x = np.linspace(0, 10, 20)
+        y = 2.0 * x + 1.0
+
+        result = curve_fitter.apply_fit(
+            mock_axes, x, y, "linear", show_parameters=False, label_location="nope"
+        )
+
+        assert result is not None
 
 
 class TestFitFunctions:

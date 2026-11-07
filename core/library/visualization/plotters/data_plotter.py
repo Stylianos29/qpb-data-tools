@@ -2668,8 +2668,8 @@ class DataPlotter(DataFrameAnalyzer):
         """
         # Reuse the fit label's placement vocabulary so that
         # statistics_location and fit_label_location behave alike.
-        position, alignment = self.curve_fitter.label_positions.get(
-            location, ((0.95, 0.95), ("right", "top"))
+        position, alignment = self.curve_fitter.resolve_label_position(
+            location, "statistics_location"
         )
 
         def summarize(values: np.ndarray) -> Tuple[str, str, str]:
@@ -2831,8 +2831,12 @@ class DataPlotter(DataFrameAnalyzer):
             Default True.
         statistics_location : str, optional
             Placement of that box, using the same vocabulary as
-            fit_label_location ("top left", "top right", "bottom left",
-            "bottom right", "center"). Default "top right".
+            fit_label_location ("top left", "top right", "top center",
+            "bottom left", "bottom right", "bottom center", "center";
+            "upper center" and "lower center" are accepted as aliases
+            of "top center" and "bottom center"). Default "top right".
+            Any other name raises ValueError, before the first figure
+            is drawn (ignored when show_statistics is False).
 
         Returns:
         --------
@@ -2841,6 +2845,13 @@ class DataPlotter(DataFrameAnalyzer):
         """
         if self.xaxis_variable_name is None:
             raise ValueError("Call set_histogram_variable() before plot_histogram().")
+
+        # Fail before any figure is created, rather than part-way through
+        # the group loop.
+        if show_statistics:
+            self.curve_fitter.resolve_label_position(
+                statistics_location, "statistics_location"
+            )
 
         histogram_variable = self.xaxis_variable_name
 

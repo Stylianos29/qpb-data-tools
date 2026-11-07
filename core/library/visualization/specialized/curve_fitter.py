@@ -77,8 +77,48 @@ class CurveFitter:
             "top right": ((0.95, 0.95), ("right", "top")),
             "bottom left": ((0.05, 0.05), ("left", "bottom")),
             "bottom right": ((0.95, 0.05), ("right", "bottom")),
+            "top center": ((0.5, 0.95), ("center", "top")),
+            "bottom center": ((0.5, 0.05), ("center", "bottom")),
             "center": ((0.5, 0.5), ("center", "center")),
         }
+        # Matplotlib-style spellings, as used by legend_location and the
+        # inset presets, resolve to the same positions.
+        self.label_positions["upper center"] = self.label_positions["top center"]
+        self.label_positions["lower center"] = self.label_positions["bottom center"]
+
+    def resolve_label_position(
+        self, location: str, parameter_name: str = "label_location"
+    ) -> Tuple[Tuple[float, float], Tuple[str, str]]:
+        """
+        Look up a text-box placement by name.
+
+        Parameters:
+        -----------
+        location : str
+            One of the keys of self.label_positions.
+        parameter_name : str, optional
+            Name of the caller's argument, quoted in the error message so
+            that the user sees which option to correct.
+
+        Returns:
+        --------
+        tuple
+            ((x, y), (horizontal_alignment, vertical_alignment)), with
+            (x, y) in axes coordinates.
+
+        Raises:
+        -------
+        ValueError
+            If location is not a known placement name. A typo must not
+            silently fall back to a default placement.
+        """
+        try:
+            return self.label_positions[location]
+        except (KeyError, TypeError):
+            valid = ", ".join(repr(name) for name in self.label_positions)
+            raise ValueError(
+                f"Unknown {parameter_name} {location!r}. Valid locations: {valid}."
+            ) from None
 
     def apply_fit(
         self,
@@ -118,7 +158,12 @@ class CurveFitter:
         - parameter_format : str, optional
             Format string for displaying parameters
         - label_location : str, optional
-            Location for parameter labels on the plot
+            Location for parameter labels on the plot: one of the keys of
+            self.label_positions ("top left", "top right", "top center",
+            "bottom left", "bottom right", "bottom center", "center",
+            plus the aliases "upper center" and "lower center").
+            Any other name raises ValueError before fitting starts
+            (only checked when show_parameters is True).
         - index_range : slice, optional
             Range of data indices to use for fitting
         - curve_range : tuple, optional
@@ -134,6 +179,12 @@ class CurveFitter:
             Dictionary containing fit results and parameters, or None if
             fit failed
         """
+        # Validate before the try block below, which downgrades every
+        # exception to a "Fit failed" warning: a mistyped location is a
+        # usage error and must reach the caller.
+        if show_parameters:
+            self.resolve_label_position(label_location, "fit_label_location")
+
         try:
             # Apply index range if specified
             if index_range is not None:
@@ -401,8 +452,8 @@ class CurveFitter:
         label_location: str,
     ) -> None:
         """Display fit parameters on the plot for scipy fits."""
-        position, alignment = self.label_positions.get(
-            label_location, ((0.05, 0.95), ("left", "top"))
+        position, alignment = self.resolve_label_position(
+            label_location, "fit_label_location"
         )
 
         # Format parameters based on function type
@@ -439,8 +490,8 @@ class CurveFitter:
         label_location: str,
     ) -> None:
         """Display fit parameters on the plot for gvar fits."""
-        position, alignment = self.label_positions.get(
-            label_location, ((0.05, 0.95), ("left", "top"))
+        position, alignment = self.resolve_label_position(
+            label_location, "fit_label_location"
         )
 
         # Format parameters with uncertainties
