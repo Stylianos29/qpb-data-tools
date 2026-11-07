@@ -2656,6 +2656,7 @@ class DataPlotter(DataFrameAnalyzer):
         number_format: str,
         font_size: int,
         bin_count: int,
+        show_count: bool = True,
     ) -> None:
         """
         Draw a summary-statistics box reporting bins, N, mean and std.
@@ -2682,14 +2683,32 @@ class DataPlotter(DataFrameAnalyzer):
             )
             return str(values.size), mean, std
 
+        # Not plain "N": in this project N also denotes polynomial orders.
+        count_symbol = r"N${}_{\mathrm{samples}}$"
+
         lines = [f"bins = {bin_count}"]
         if len(series_statistics) == 1 and series_statistics[0][0] is None:
             count, mean, std = summarize(series_statistics[0][1])
-            lines += [f"N = {count}", f"mean = {mean}", f"std = {std}"]
+            if show_count:
+                lines.append(f"{count_symbol} = {count}")
+            lines += [f"mean = {mean}", f"std = {std}"]
         else:
+            # When every series has the same size, state N once on the
+            # shared bins line rather than repeating it per series. With
+            # unequal sizes no single number is accurate, so N stays
+            # per series.
+            sizes = {values.size for _, values in series_statistics}
+            shared_count = show_count and len(sizes) == 1
+            if shared_count:
+                lines[0] += f", {count_symbol} = {sizes.pop()}"
             for label, values in series_statistics:
                 count, mean, std = summarize(values)
-                lines.append(f"{label}: N={count}, mean={mean}, std={std}")
+                count_part = (
+                    f"{count_symbol}={count}, "
+                    if show_count and not shared_count
+                    else ""
+                )
+                lines.append(f"{label}: {count_part}mean={mean}, std={std}")
 
         ax.text(
             *position,
@@ -2767,6 +2786,7 @@ class DataPlotter(DataFrameAnalyzer):
         statistics_location: str = "top right",
         statistics_format: str = ".4g",
         statistics_fontsize: int = 9,
+        show_statistics_count: bool = True,
         # Output control
         save_figure: bool = True,
         file_format: Optional[str] = None,
@@ -2837,6 +2857,13 @@ class DataPlotter(DataFrameAnalyzer):
             of "top center" and "bottom center"). Default "top right".
             Any other name raises ValueError, before the first figure
             is drawn (ignored when show_statistics is False).
+        show_statistics_count : bool, optional
+            Include the sample size, labelled N${}_{\mathrm{samples}}$,
+            in that box. Default True; set False to omit it (e.g. when
+            the caption states it). When several overlaid series all
+            have the same size, it is shown once on the bins line
+            ("bins = 25, N_samples = 296"); otherwise each series line
+            carries its own count.
 
         Returns:
         --------
@@ -3002,6 +3029,7 @@ class DataPlotter(DataFrameAnalyzer):
                     location=statistics_location,
                     number_format=statistics_format,
                     font_size=statistics_fontsize,
+                    show_count=show_statistics_count,
                     bin_count=bin_edges.size - 1,
                 )
 

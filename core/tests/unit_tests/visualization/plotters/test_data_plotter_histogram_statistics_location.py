@@ -24,6 +24,9 @@ import matplotlib.pyplot as plt
 
 from library.visualization.plotters.data_plotter import DataPlotter
 
+# Sample-size symbol printed in the statistics box
+COUNT = r"N${}_{\mathrm{samples}}$"
+
 
 @pytest.fixture
 def plotter(tmp_path):
@@ -136,3 +139,84 @@ class TestStatisticsLocationValidation:
         )
 
         assert len(plt.get_fignums()) == 1
+
+
+class TestStatisticsCountOptional:
+    """The sample size can be left out of the box."""
+
+    def test_shown_single_series(self, plotter):
+        text = _statistics_text({}, plotter).get_text()
+
+        assert f"{COUNT} = 80" in text
+
+    def test_omitted_single_series(self, plotter):
+        text = _statistics_text({"show_statistics_count": False}, plotter).get_text()
+
+        assert "samples" not in text
+        assert "mean =" in text and "std =" in text and "bins =" in text
+
+    def test_omitted_grouped_series(self, plotter):
+        plotter.plot_histogram(
+            grouping_variable="Kernel_operator_type",
+            show_statistics_count=False,
+            save_figure=False,
+            verbose=False,
+        )
+        text = [
+            t
+            for t in plt.figure(plt.get_fignums()[0]).axes[0].texts
+            if "bins =" in t.get_text()
+        ][0].get_text()
+
+        assert "samples" not in text
+        assert text.count(": mean=") == 2
+
+
+def _grouped_statistics_text(plotter, dataframe=None, **kwargs):
+    """Plot a grouped histogram without saving; return the box text."""
+    if dataframe is not None:
+        plotter = DataPlotter(dataframe, plotter.plots_directory)
+        plotter.set_histogram_variable("Leftmost_real_kernel_eigenvalue")
+    plotter.plot_histogram(
+        grouping_variable="Kernel_operator_type",
+        save_figure=False,
+        verbose=False,
+        **kwargs,
+    )
+    return [
+        t
+        for t in plt.figure(plt.get_fignums()[0]).axes[0].texts
+        if "bins =" in t.get_text()
+    ][0].get_text()
+
+
+class TestSharedStatisticsCount:
+    """Equal series sizes are reported once, on the bins line."""
+
+    def test_equal_counts_shown_once_on_bins_line(self, plotter):
+        text = _grouped_statistics_text(plotter)
+
+        first_line, *series_lines = text.split("\n")
+        assert first_line.endswith(f", {COUNT} = 40")
+        assert len(series_lines) == 2
+        assert all("samples" not in line for line in series_lines)
+
+    def test_unequal_counts_stay_per_series(self, plotter):
+        rng = np.random.default_rng(7)
+        dataframe = pd.DataFrame(
+            {
+                "Kernel_operator_type": ["Wilson"] * 30 + ["Brillouin"] * 50,
+                "Leftmost_real_kernel_eigenvalue": rng.normal(size=80),
+            }
+        )
+        text = _grouped_statistics_text(plotter, dataframe)
+
+        first_line = text.split("\n")[0]
+        assert "samples" not in first_line
+        assert f"{COUNT}=30" in text and f"{COUNT}=50" in text
+
+    def test_hidden_count_not_on_bins_line(self, plotter):
+        text = _grouped_statistics_text(plotter, show_statistics_count=False)
+
+        assert "samples" not in text.split("\n")[0]
+        assert "samples" not in text
