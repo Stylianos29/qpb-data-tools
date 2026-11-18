@@ -1,3 +1,4 @@
+import ast
 import os
 from typing import Callable, Union, Optional
 import math
@@ -7,6 +8,37 @@ import numpy as np
 
 from .analyzer import DataFrameAnalyzer
 from ..constants import AXES_LABELS_BY_COLUMN_NAME
+from ..utils.formatting import format_value_with_error
+
+
+def _format_as_gvar(value) -> str:
+    """
+    Render a (mean, error) pair in compact ``value(error)`` notation.
+
+    Accepts a 2-element tuple/list/array, or its string representation
+    (e.g. a column that was not converted when loading the CSV). A zero
+    or non-finite error falls back to the plain value. Anything that is
+    not a (mean, error) pair is returned as str(value).
+    """
+    if isinstance(value, str):
+        try:
+            value = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            return value
+    if isinstance(value, (tuple, list, np.ndarray)) and len(value) == 2:
+        try:
+            return format_value_with_error(float(value[0]), float(value[1]))
+        except (TypeError, ValueError):
+            pass
+    return str(value)
+
+
+# Formatters selectable by name via format_value="<name>". Unlike custom
+# callables, these are applied to each individual value, so that with
+# aggregation="list" every listed element is formatted before joining.
+NAMED_VALUE_FORMATTERS = {
+    "gvar": _format_as_gvar,
+}
 
 
 def _latex_label(column_name: str) -> str:
@@ -416,7 +448,7 @@ class TableGenerator(DataFrameAnalyzer):
         row_variable: Optional[str] = None,
         column_variable: Optional[str] = None,
         aggregation: Union[str, Callable] = "count",
-        format_value: Optional[Callable] = None,
+        format_value: Optional[Union[str, Callable]] = None,
         exclude_from_grouping: Optional[list] = None,
         export_to_file: bool = False,
         output_directory: Optional[str] = None,
@@ -437,9 +469,16 @@ class TableGenerator(DataFrameAnalyzer):
               'len', 'min', 'max', 'mean'), or a custom callable
               function that takes a pandas Series as input and returns a
               value.
-            - format_value (Callable, optional): A function to format
-              aggregated values for display. Takes a value and returns a
-              string. If None, str() is used. Default is None.
+            - format_value (Union[str, Callable], optional): How to
+              format values for display. Either:
+                - a callable, applied to the aggregated result (with
+                  aggregation='list' it receives the already-joined
+                  string);
+                - the name of a built-in formatter (see
+                  NAMED_VALUE_FORMATTERS), applied to each individual
+                  value. 'gvar' renders (mean, error) tuples as e.g.
+                  '0.1234(56)'.
+              If None, str() is used. Default is None.
             - exclude_from_grouping (list, optional): Additional tunable
               parameters to exclude from grouping.
             - export_to_file (bool, optional): Whether to export the
@@ -470,6 +509,30 @@ class TableGenerator(DataFrameAnalyzer):
             raise ValueError(
                 f"aggregation must be either a string from {built_in_aggregations} "
                 f"or a custom callable function."
+            )
+
+        # Resolve format_value into an element-level formatter (used
+        # inside aggregation='list') and a result-level formatter
+        # (applied to each aggregated cell)
+        if isinstance(format_value, str):
+            if format_value not in NAMED_VALUE_FORMATTERS:
+                raise ValueError(
+                    f"Unsupported format_value: '{format_value}'. Must be one "
+                    f"of {set(NAMED_VALUE_FORMATTERS)} or a custom callable."
+                )
+            element_formatter = NAMED_VALUE_FORMATTERS[format_value]
+            # 'list' output is already formatted element by element
+            result_formatter = str if aggregation == "list" else element_formatter
+        elif format_value is None:
+            element_formatter = str
+            result_formatter = str
+        elif callable(format_value):
+            element_formatter = str
+            result_formatter = format_value
+        else:
+            raise ValueError(
+                "format_value must be None, a formatter name from "
+                f"{set(NAMED_VALUE_FORMATTERS)}, or a custom callable."
             )
 
         for var in [value_variable, row_variable, column_variable]:
@@ -511,7 +574,7 @@ class TableGenerator(DataFrameAnalyzer):
             elif agg == "count":
                 return series.nunique()
             elif agg == "list":
-                return ", ".join(str(v) for v in sorted(series.unique()))
+                return ", ".join(element_formatter(v) for v in sorted(series.unique()))
             elif agg == "len":
                 return len(series)
             elif agg == "min":
@@ -525,8 +588,8 @@ class TableGenerator(DataFrameAnalyzer):
 
         # Define formatter wrapper
         def format_result(value):
-            """Apply formatting function if provided, otherwise use str()."""
-            return format_value(value) if format_value is not None else str(value)
+            """Apply the resolved result-level formatter."""
+            return result_formatter(value)
 
         for idx, (group_keys, group_df) in enumerate(groupby_obj):
             if not isinstance(group_keys, tuple):
