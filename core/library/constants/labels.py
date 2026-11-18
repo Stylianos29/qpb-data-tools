@@ -238,6 +238,9 @@ AXES_LABELS_BY_COLUMN_NAME = {
         "- aD^{\\mathrm{ov}} \\gamma_5 aD^{\\mathrm{ov}})\\eta$||$^2$"
         "/||$\\eta$||$^2$"
     ),
+    "Average_forward_operator_norm_squared_values": (
+        "||$D\\eta$||$^2$ / ||$\\eta$||$^2$"
+    ),
     "Ginsparg_wilson_relation_with_no_error": (
         "||($aD^{\\mathrm{ov}} \\gamma_5 + \\gamma_5 aD^{\\mathrm{ov}} "
         "- aD^{\\mathrm{ov}} \\gamma_5 aD^{\\mathrm{ov}})\\eta$||$^2$"

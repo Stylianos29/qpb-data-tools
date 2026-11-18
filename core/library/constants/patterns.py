@@ -554,6 +554,8 @@ MAIN_PROGRAM_TYPE_MAPPING = {
     "|| Sign^2(X) ||^2": "sign_squared_values",
     "||[D^+D, DD^+]||": "normality",
     "GW diff": "ginsparg_wilson_relation",
+    # Forward application of an operator: ||D(eta)||^2/||eta||^2
+    "||D(eta)||^2/||eta||^2": "forward_operator_norm_squared",
     "CG done": "invert",
     "BiCGStab done": "invert",
 }

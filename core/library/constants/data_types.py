@@ -63,6 +63,9 @@ CONVERTERS_MAPPING = {
     "Average_ginsparg_wilson_relation_values": lambda x: (
         ast.literal_eval(x) if x.strip() else x
     ),
+    "Average_forward_operator_norm_squared_values": lambda x: (
+        ast.literal_eval(x) if x.strip() else x
+    ),
     "Average_CG_calculation_time_per_spinor": lambda x: (
         ast.literal_eval(x) if x.strip() else x
     ),
