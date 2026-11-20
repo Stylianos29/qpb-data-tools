@@ -110,6 +110,8 @@ OPTIONAL ARGUMENTS:
                                Directory for auxiliary files (default: auto-detected)
   -log_name, --log_filename    Custom log filename (default: ${SCRIPT_LOG_FILENAME})
   --disable-cache              Disable timestamp-based caching (force validation)
+  --no-quarantine              Delete rejected files permanently instead of moving
+                               them to auxiliary/quarantine/<timestamp>/
   -h, --help                   Display this help message
 
 VALIDATION PROCESS:
@@ -132,6 +134,7 @@ AUXILIARY DIRECTORY STRUCTURE:
   ├── logs/                    # Validation logs
   ├── metadata/                # Data file set metadata
   ├── timestamps/              # Validation timestamps
+  ├── quarantine/<timestamp>/  # Rejected files (only if any were rejected)
   ├── summaries/               # (created by pipeline)
   └── visualization/           # (created by pipeline)
 
@@ -298,6 +301,9 @@ function run_validation() {
     python_cmd+=" --auxiliary_files_directory \"$auxiliary_dir\""
     python_cmd+=" --metadata_directory \"$metadata_dir\""
     python_cmd+=" --logs_directory \"$logs_dir\""
+    if [[ "$use_quarantine" == false ]]; then
+        python_cmd+=" --no_quarantine"
+    fi
     
     log_info "Executing command: $python_cmd"
     
@@ -351,6 +357,7 @@ input_directory=""
 auxiliary_directory=""
 log_filename=""
 enable_cache=true
+use_quarantine=true
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -369,6 +376,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --disable-cache)
             enable_cache=false
+            shift
+            ;;
+        --no-quarantine)
+            use_quarantine=false
             shift
             ;;
         -h|--help)

@@ -139,3 +139,31 @@ class TestGaugeShiftsOmission:
 
         assert "Gauge_shifts" not in extracted_values
         assert logger.warning.call_count == 1
+
+
+# ==============================================================================
+# TESTS: MAIN PROGRAM TYPE DETECTION
+# ==============================================================================
+
+
+class TestMainProgramTypeDetection:
+    """Main_program_type is detected from key phrases in the contents."""
+
+    def _main_program_type(self, result_line):
+        lines = _log_header() + [result_line]
+        return extract_scalar_parameters_from_file_contents(lines).get(
+            "Main_program_type"
+        )
+
+    def test_sign_squared_violation(self):
+        line = " Done vector = 1 / 10, || Sign^2(X) - 1 ||^2 = 2.367e-10\n"
+        assert self._main_program_type(line) == "sign_squared_violation"
+
+    def test_legacy_sign_squared_violation_without_square(self):
+        """Older qpb versions printed the same quantity with a label typo."""
+        line = " Done vector = 1 / 1, || Sign^2(X) - 1 || = 1.230965e-06\n"
+        assert self._main_program_type(line) == "sign_squared_violation"
+
+    def test_sign_squared_values_are_not_mistaken_for_violation(self):
+        line = " Done vector = 1 / 10, || Sign^2(X) ||^2 = 1.000001e+00\n"
+        assert self._main_program_type(line) == "sign_squared_values"

@@ -629,6 +629,9 @@ FILE_CONTENTS_ARRAY_PATTERNS_DICTIONARY = {
 
 MAIN_PROGRAM_TYPE_MAPPING = {
     "|| Sign^2(X) - 1 ||^2": "sign_squared_violation",
+    # Older qpb versions printed the same squared quantity with a typo in
+    # its label (missing "^2"), e.g. "|| Sign^2(X) - 1 || = 1.23e-06"
+    "|| Sign^2(X) - 1 ||": "sign_squared_violation",
     "|| Sign^2(X) ||^2": "sign_squared_values",
     "||[D^+D, DD^+]||": "normality",
     "GW diff": "ginsparg_wilson_relation",
