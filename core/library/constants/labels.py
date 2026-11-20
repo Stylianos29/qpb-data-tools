@@ -58,6 +58,9 @@ TITLE_LABELS_BY_COLUMN_NAME = {
     "Minimum_eigenvalue_squared": "$\\lambda_{\\text{min}}^2$",
     "Minimum_eigenvalue": "$\\lambda_{\\text{min}}$",
     "Maximum_eigenvalue_squared": "$\\lambda_{\\text{max}}^2$",
+    "Overlap_lambda_min_squared": "$(\\lambda^{\\text{ov.}}_{\\text{min}})^2$",
+    "Overlap_lambda_max_squared": "$(\\lambda^{\\text{ov.}}_{\\text{max}})^2$",
+    "Overlap_condition_number": "$\\kappa^{\\text{ov.}}$",
     "Number_of_gauge_configurations": "# of configs",
     "Threads_per_process": "$n_{\\text{OMP}}$",
     "Solver_type": "Solver",
@@ -132,6 +135,10 @@ AXES_LABELS_BY_COLUMN_NAME = {
     "Average_wall_clock_time_per_spinor": "Average wall-clock time per spinor (s)",
     "Average_wall_clock_time_per_vector": "Average wall-clock time per vector (s)",
     "Total_calculation_time": "Total wall-clock time (s)",
+    "Overlap_Lanczos_total_calculation_time": (
+        "Overlap Lanczos wall-clock time (s)"
+    ),
+    "Total_core_hours": "Computational cost (core-hours)",
     "Total_overhead_time": "Overhead time (s)",
     "Overhead_core_hours": "Overhead cost (core-hours)",
     "Average_overhead_core_hours_per_config": "Average overhead cost (core-hours/config)",
@@ -163,6 +170,9 @@ AXES_LABELS_BY_COLUMN_NAME = {
         "Average # of MSCG iterations (per spinor)"
     ),
     "Total_number_of_Lanczos_iterations": "Total Lanczos iterations",
+    "Total_number_of_MSCG_iterations": "Total # of MSCG iterations",
+    "Total_number_of_kernel_applications": "Total # of kernel applications",
+    "Final_overlap_Lanczos_iteration_count": "Overlap Lanczos iterations",
     # ---------------------------------------------------------------------------
     # PCAC mass observables
     # ---------------------------------------------------------------------------
@@ -263,6 +273,9 @@ AXES_LABELS_BY_COLUMN_NAME = {
     "Maximum_eigenvalue_squared": "$\\lambda_{\\text{max}}^2$",
     "Leftmost_real_kernel_eigenvalue": "$\\lambda_{\\text{L}}$",
     "Condition_number": "$\\kappa_{\\mathbb{X}^2}$",
+    "Overlap_lambda_min_squared": "$(\\lambda^{\\text{ov.}}_{\\text{min}})^2$",
+    "Overlap_lambda_max_squared": "$(\\lambda^{\\text{ov.}}_{\\text{max}})^2$",
+    "Overlap_condition_number": "$\\kappa^{\\text{ov.}}$",
     "KL_scaling_factor": "$\\mu$",
     "Rho_value": "$\\rho$",
     "Lanczos_epsilon": "$\\epsilon_{\\text{Lanczos}}$",
@@ -284,6 +297,8 @@ AXES_LABELS_BY_COLUMN_NAME = {
 
 LEGEND_LABELS_BY_COLUMN_NAME = {
     "Condition_number": "$\\kappa_{\\mathbb{X}^2}=$",
+    "Overlap_condition_number": "$\\kappa^{\\text{ov.}}=$",
+    "Eigensolver_epsilon": "$\\epsilon^{\\text{ov.}}_{\\text{Lanczos}}$:",
     "Configuration_label": "Config. labels:",
     "KL_diagonal_order": "n=",
     "Zolotarev_order": "$n_Z=$",
