@@ -585,3 +585,19 @@ class TestApplyAndUndo:
         assert not any(
             "standardization" in p for p in os.listdir(mixed_mass_set.parent)
         )
+
+
+class TestSuggestSetName:
+    def test_kernel_is_not_part_of_the_suggested_name(self, specifications):
+        stems = [
+            f"KL_{kernel}_n{n}_config0056800"
+            for kernel in ("Brillouin", "Standard")
+            for n in range(1, 8)
+        ]
+        groups = [make_group(s, specifications) for s in stems]
+        for g in groups:
+            g.new_stem = g.stem
+        summaries = summaries_for(groups, specifications)
+        order = ["Overlap_operator_method", "Kernel_operator_type",
+                 "Rational_order", "Configuration_label"]
+        assert sqf.suggest_set_name(order, summaries, groups) == "KL_varying_n"

@@ -898,14 +898,17 @@ def suggest_set_name(
     groups: List[FileGroup],
 ) -> str:
     method_token = groups[0].target_stem.split("_", 1)[0]
+    # Method and kernel are never part of the set name: a set holds a single
+    # method and one or both kernels by convention
+    named = [p for p in order if p not in ALWAYS_KEPT_PARAMETERS]
     several = [
         summaries[p].display_label
-        for p in order
+        for p in named
         if summaries[p].classification == "several"
     ]
     varying = [
         summaries[p].display_label
-        for p in order
+        for p in named
         if summaries[p].classification == "varying"
     ]
     name = method_token
