@@ -20,6 +20,18 @@ Resolve generic Rational_order (from filename) to method-specific names
 based on Overlap_operator_method.
 """
 
+# =============================================================================
+# PROGRAM TYPES WITHOUT RANDOM VECTORS
+# =============================================================================
+"""
+Main program types whose log files contain no per-vector results
+("Done vector = ..." lines). For these, Number_of_vectors is
+meaningless: it is not defaulted, not deduced from HDF5, and not
+validated against Calculation_result_per_vector.
+"""
+
+PROGRAM_TYPES_WITHOUT_VECTORS = ("overlap_eigenvalue_estimation",)
+
 RATIONAL_ORDER_RESOLUTION_MAPPING = {
     "Diagonal KL": "KL_diagonal_order",
     "Upper-Diagonal KL": "Neuberger_order",
@@ -82,9 +94,12 @@ SOLVER_PARAMETER_RESOLUTION_RULES = {
     # DIAGONAL KL METHOD
     # =========================================================================
     ("Diagonal KL", False): {
-        # Non-invert Diagonal KL: Generic → MSCG (inner/sign function)
+        # Non-invert Diagonal KL: Generic → MSCG (inner/sign function).
+        # Eigens programs print the sign-function solver as "Inner".
         "Generic_solver_epsilon": "MSCG_epsilon",
         "Generic_solver_max_iterations": "MSCG_max_iterations",
+        "Inner_solver_epsilon": "MSCG_epsilon",
+        "Inner_solver_max_iterations": "MSCG_max_iterations",
     },
     ("Diagonal KL", True): {
         # Invert Diagonal KL: Inner → MSCG, Outer → CG
@@ -97,9 +112,12 @@ SOLVER_PARAMETER_RESOLUTION_RULES = {
     # UPPER-DIAGONAL KL METHOD
     # =========================================================================
     ("Upper-Diagonal KL", False): {
-        # Non-invert Upper-Diagonal KL: Generic → MSCG (inner/sign function)
+        # Non-invert Upper-Diagonal KL: Generic → MSCG (inner/sign function).
+        # Eigens programs print the sign-function solver as "Inner".
         "Generic_solver_epsilon": "MSCG_epsilon",
         "Generic_solver_max_iterations": "MSCG_max_iterations",
+        "Inner_solver_epsilon": "MSCG_epsilon",
+        "Inner_solver_max_iterations": "MSCG_max_iterations",
     },
     ("Upper-Diagonal KL", True): {
         # Invert Upper-Diagonal KL: Inner → MSCG, Outer → CG
@@ -112,9 +130,12 @@ SOLVER_PARAMETER_RESOLUTION_RULES = {
     # ZOLOTAREV METHOD
     # =========================================================================
     ("Zolotarev", False): {
-        # Non-invert Zolotarev: Generic → MSCG (inner/sign function)
+        # Non-invert Zolotarev: Generic → MSCG (inner/sign function).
+        # Eigens programs print the sign-function solver as "Inner".
         "Generic_solver_epsilon": "MSCG_epsilon",
         "Generic_solver_max_iterations": "MSCG_max_iterations",
+        "Inner_solver_epsilon": "MSCG_epsilon",
+        "Inner_solver_max_iterations": "MSCG_max_iterations",
     },
     ("Zolotarev", True): {
         # Invert Zolotarev: Inner → MSCG, Outer → CG
@@ -239,6 +260,10 @@ HDF5_PROCESSING_RULES = {
             "condition": "all_lengths_equal_to_one",
         },
     },
+    # "program_type_overrides" replace keys of a rule for a given
+    # Main_program_type. Eigens programs have no vectors or spinors, so
+    # per-unit averages are meaningless; totals per run are reported
+    # instead.
     "Total_number_of_MSCG_iterations": {
         "output_pattern": "Average_number_of_MSCG_iterations_per_{unit}",
         "aggregation_method": "mean_with_error",
@@ -246,6 +271,12 @@ HDF5_PROCESSING_RULES = {
         "unit_mapping": {
             "has_Number_of_spinors": {"unit": "spinor"},
             "default": {"unit": "vector"},
+        },
+        "program_type_overrides": {
+            "overlap_eigenvalue_estimation": {
+                "output_pattern": "Total_number_of_MSCG_iterations",
+                "aggregation_method": "sum",
+            },
         },
     },
     "CG_total_calculation_time_per_spinor": {
@@ -285,6 +316,12 @@ HDF5_PROCESSING_RULES = {
             },
             "default": {"unit": "vector", "divisor": "Number_of_vectors"},
         },
+        "program_type_overrides": {
+            "overlap_eigenvalue_estimation": {
+                "output_pattern": "Total_number_of_kernel_applications",
+                "aggregation_method": "sum",
+            },
+        },
     },
 }
 
@@ -313,6 +350,10 @@ ANALYSIS_CASES = {
         "mv_multiplication_formula": "calculate_mv_from_mscg_data",
         "time_cost_input": "Average_wall_clock_time_per_vector",
     },
+    # Selected by Main_program_type rather than by column presence
+    "overlap_eigenvalue_estimation": {
+        "time_cost_input": "Overlap_Lanczos_total_calculation_time",
+    },
 }
 
 # =============================================================================
@@ -334,6 +375,11 @@ TIME_COST_CALCULATIONS = {
         },
         "forward_case": {
             "output_column": "Average_core_hours_per_vector",
+        },
+        # Whole-run cost: Number_of_cores × time / 3600 (no unit division)
+        "eigenvalue_estimation_case": {
+            "output_column": "Total_core_hours",
+            "input_column": "Overlap_Lanczos_total_calculation_time",
         },
     },
     "overhead_core_hours": {

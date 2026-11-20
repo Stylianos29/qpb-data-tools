@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from src.processing._param_transform_config import (
+    PROGRAM_TYPES_WITHOUT_VECTORS,
     RATIONAL_ORDER_RESOLUTION_MAPPING,
     SOLVER_PARAMETER_RESOLUTION_RULES,
     RAW_SOLVER_PARAMETER_NAMES,
@@ -29,6 +30,13 @@ from src.processing._param_transform_config import (
     PARSER_FUNCTIONS,
     CALCULATION_FUNCTIONS,
 )
+
+
+def _get_main_program_type(dataframe: pd.DataFrame) -> Optional[str]:
+    """Return the data file set's Main_program_type, or None if absent."""
+    if "Main_program_type" in dataframe.columns and len(dataframe) > 0:
+        return dataframe["Main_program_type"].iloc[0]
+    return None
 
 
 class ParameterTransformationEngine:
@@ -367,9 +375,14 @@ class ParameterTransformationEngine:
                     self.dataframe[result_column] = self.dataframe[existing_sources[0]]
 
         # Apply default values for missing columns
+        has_no_vectors = (
+            _get_main_program_type(self.dataframe) in PROGRAM_TYPES_WITHOUT_VECTORS
+        )
         for column_name, default_value in COLUMN_OPERATIONS.get(
             "default_values", {}
         ).items():
+            if column_name == "Number_of_vectors" and has_no_vectors:
+                continue
             if column_name not in self.dataframe.columns:
                 self.dataframe[column_name] = default_value
                 self.logger.info(
@@ -529,7 +542,10 @@ class HDF5ParameterProcessor:
                     self.dataframe["Number_of_spinors"] = 12  # Default
                     self.logger.info("Using default Number_of_spinors = 12")
 
-        # Handle Number_of_vectors
+        # Handle Number_of_vectors (meaningless for programs without
+        # random vectors, e.g. overlap eigenvalue estimation)
+        if main_program_type in PROGRAM_TYPES_WITHOUT_VECTORS:
+            return
         if "Number_of_vectors" not in self.dataframe.columns:
             if main_program_type != "invert":
                 # Try to deduce from HDF5
@@ -638,6 +654,16 @@ class HDF5ParameterProcessor:
 
         self.dataframe[output_column] = self.dataframe["Filename"].map(result_dict)
         self.logger.info(f"    Added: {len(result_dict)} mean values")
+
+    def _add_sum_column(self, dataset_dict: Dict, output_column: str) -> None:
+        """Add column with the plain sum of each dataset (no division)."""
+        result_dict = {
+            filename: int(np.sum(dataset_values))
+            for filename, dataset_values in dataset_dict.items()
+        }
+
+        self.dataframe[output_column] = self.dataframe["Filename"].map(result_dict)
+        self.logger.info(f"    Added: {len(result_dict)} summed values")
 
     def _add_sum_divided_column(
         self, dataset_dict: Dict, output_column: str, config: Dict
@@ -780,6 +806,13 @@ class HDF5ParameterProcessor:
             self.logger.debug(f"  Skipping {dataset_name} (not in HDF5)")
             return
 
+        # Apply program-type-specific overrides of the rule, if any
+        overrides = config.get("program_type_overrides", {}).get(
+            _get_main_program_type(self.dataframe)
+        )
+        if overrides:
+            config = {**config, **overrides}
+
         try:
             # Extract dataset values using HDF5Analyzer
             dataset_dict = self._extract_dataset_to_dict(dataset_name)
@@ -808,6 +841,8 @@ class HDF5ParameterProcessor:
                 self._add_single_value_column(dataset_dict, output_column)
             elif aggregation_method == "mean":
                 self._add_mean_column(dataset_dict, output_column)
+            elif aggregation_method == "sum":
+                self._add_sum_column(dataset_dict, output_column)
             elif aggregation_method == "sum_then_divide":
                 self._add_sum_divided_column(dataset_dict, output_column, config)
             elif aggregation_method == "sum_plus_length_then_divide":
@@ -1044,6 +1079,11 @@ class HDF5ParameterProcessor:
 
         if main_program_type == "invert":
             self._validate_invert_case()
+        elif main_program_type in PROGRAM_TYPES_WITHOUT_VECTORS:
+            self.logger.info(
+                f"  Skipping vector count validation: '{main_program_type}' "
+                "has no per-vector results"
+            )
         else:
             self._validate_forward_case()
 
@@ -1276,8 +1316,13 @@ class AnalysisCaseProcessor:
         inversions.
 
         Returns:
-            "inversions" or "forward_operator_applications"
+            "inversions", "forward_operator_applications" or
+            "overlap_eigenvalue_estimation"
         """
+        # Eigenvalue estimation is identified by program type
+        if _get_main_program_type(self.dataframe) == "overlap_eigenvalue_estimation":
+            return "overlap_eigenvalue_estimation"
+
         # Simple logic: presence of Number_of_spinors indicates
         # inversion case
         if "Number_of_spinors" in self.dataframe.columns:
@@ -1342,6 +1387,12 @@ class AnalysisCaseProcessor:
 
     def _apply_time_cost_calculations(self, analysis_case: str) -> None:
         """Apply time and cost calculations for the given case."""
+        if analysis_case == "overlap_eigenvalue_estimation":
+            self._calculate_total_core_hours(
+                TIME_COST_CALCULATIONS["core_hours"]["eigenvalue_estimation_case"]
+            )
+            return
+
         if "Total_calculation_time" not in self.dataframe.columns:
             return
 
@@ -1422,6 +1473,35 @@ class AnalysisCaseProcessor:
             self.logger.warning(
                 f"Cannot calculate {output_column}: {input_column} not found"
             )
+
+    def _calculate_total_core_hours(self, config: Dict) -> None:
+        """Calculate whole-run cost in core-hours (no unit division).
+
+        Rows lacking the input time (e.g. runs that hit the iteration
+        cap and print no total time) get NaN.
+        """
+        input_column = config["input_column"]
+        output_column = config["output_column"]
+
+        missing = [
+            col
+            for col in ("Number_of_cores", input_column)
+            if col not in self.dataframe.columns
+        ]
+        if missing:
+            self.logger.warning(
+                f"Cannot calculate {output_column}: {missing} not found"
+            )
+            return
+
+        self.dataframe[output_column] = (
+            self.dataframe["Number_of_cores"] * self.dataframe[input_column] / 3600
+        )
+        n_missing = int(self.dataframe[output_column].isna().sum())
+        self.logger.info(
+            f"Calculated {output_column}"
+            + (f" ({n_missing} rows without {input_column})" if n_missing else "")
+        )
 
     def _calculate_overhead_core_hours(self) -> None:
         """Calculate overhead cost in core-hours (no spinor division)."""
