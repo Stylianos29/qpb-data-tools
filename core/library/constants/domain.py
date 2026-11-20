@@ -37,6 +37,10 @@ TUNABLE_PARAMETER_NAMES_LIST = [
     "Delta_Max",  # Maximum eigenvalue modification delta
     "Delta_Min",  # Minimum eigenvalue modification delta
     # =========================================================================
+    # Overlap Eigenvalue Solver Parameters ("eigens" programs)
+    # =========================================================================
+    "Eigensolver_epsilon",  # Overlap Lanczos eigensolver convergence tolerance
+    # =========================================================================
     # Solver Parameters
     # =========================================================================
     # Convergence tolerances and iteration limits for various solvers

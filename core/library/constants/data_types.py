@@ -89,6 +89,7 @@ CONVERTERS_MAPPING = {
 
 PARAMETERS_WITH_EXPONENTIAL_FORMAT = [
     "Lanczos_epsilon",
+    "Eigensolver_epsilon",
     "Outer_solver_epsilon",
     "CG_epsilon",
     "Solver_epsilon",

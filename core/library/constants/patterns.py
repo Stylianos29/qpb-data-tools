@@ -77,6 +77,12 @@ FILENAME_SCALAR_PATTERNS_DICTIONARY = {
         "pattern": r"LanczosMaxIters(?P<Lanczos_max_iterations>\d+)",
         "type": int,
     },
+    # Overlap-operator eigenvalue solver ("eigens" programs); distinct from
+    # the kernel Lanczos solver above (EpsLanczos / LanczosMaxIters)
+    "Eigensolver_epsilon": {
+        "pattern": r"_EpsEigensolver(?P<Eigensolver_epsilon>\d*[\.p]?\d+e[+-]\d+|\d+e[+-]\d+)",
+        "type": float,
+    },
     "Delta_Min": {
         "pattern": r"dMin(?P<Delta_Min>\d+p?\d*)",
         "type": float,
@@ -280,6 +286,18 @@ FILE_CONTENTS_SCALAR_PATTERNS_DICTIONARY = {
     },
     # Older logs print "Min eigenvalue squared modification ...", newer ones
     # "selected delta_min = 5.000000e-01". Alternatives are tried in order.
+    # Overlap-operator eigenvalue solver ("eigens" programs); distinct from
+    # the kernel Lanczos solver above ("Lanczos epsilon =")
+    "Eigensolver_epsilon": {
+        "line_identifier": "Eigensolver epsilon =",
+        "regex_pattern": r"(\d+(?:\.\d+)?e[+-]\d+)",
+        "type": float,
+    },
+    "Eigensolver_max_iterations": {
+        "line_identifier": "Eigensolver max iters =",
+        "regex_pattern": r"(\d+)",
+        "type": int,
+    },
     "Delta_Min": {
         "line_identifier": (
             "Min eigenvalue squared modification",
@@ -319,6 +337,42 @@ FILE_CONTENTS_SCALAR_PATTERNS_DICTIONARY = {
     "Leftmost_real_kernel_eigenvalue": {
         "line_identifier": "delta (leftmost real kernel mode)",
         "regex_pattern": r"(\d+(\.\d+)?)",
+        "type": float,
+    },
+    # Final results of the overlap-operator Lanczos solver ("eigens"
+    # programs). The summary block prints, e.g.,
+    #   Lanczos converged after 220 iters, t = 130.339 sec
+    #    lambda_min_squared = +1.713542664994e-02   (...)
+    #    lambda_max_squared = +1.112784288629e+01   (...)
+    #    Condition number = 6.494057e+02
+    # The per-iteration lines also contain "lambda_min_squared =" but
+    # always preceded by a comma (", lambda_min_squared ="), so lines
+    # with that comma are excluded to isolate the final value.
+    "Overlap_lambda_min_squared": {
+        "line_identifier": "lambda_min_squared =",
+        "line_exclusion": ", lambda_min_squared",
+        "regex_pattern": r"lambda_min_squared =\s*([+-]?\d+(?:\.\d+)?e[+-]\d+)",
+        "type": float,
+    },
+    "Overlap_lambda_max_squared": {
+        "line_identifier": "lambda_max_squared =",
+        "line_exclusion": ", lambda_max_squared",
+        "regex_pattern": r"lambda_max_squared =\s*([+-]?\d+(?:\.\d+)?e[+-]\d+)",
+        "type": float,
+    },
+    "Overlap_condition_number": {
+        "line_identifier": "Condition number =",
+        "regex_pattern": r"Condition number =\s*(\d+(?:\.\d+)?e[+-]\d+)",
+        "type": float,
+    },
+    "Final_overlap_Lanczos_iteration_count": {
+        "line_identifier": "Lanczos converged after",
+        "regex_pattern": r"Lanczos converged after (\d+) iters",
+        "type": int,
+    },
+    "Overlap_Lanczos_total_calculation_time": {
+        "line_identifier": "Lanczos converged after",
+        "regex_pattern": r", t = (\d+(?:\.\d+)?) sec",
         "type": float,
     },
     # =========================================================================
@@ -464,11 +518,35 @@ FILE_CONTENTS_ARRAY_PATTERNS_DICTIONARY = {
         "regex_pattern": r"= (\d+(?:\.\d+)?e[+-]\d+)",
         "type": float,
     },
-    # Lanczos Solver
+    # Lanczos Solver (kernel operator). Lines look like
+    # "iter = 101, CN = ... (change = ..., target = ...)".
+    # NOTE: the overlap-operator Lanczos lines below also contain
+    # " (change = "; the ", CN" anchor in the regex keeps them apart.
     "Lanczos_iterations_running_count": {
         "line_identifier": " (change = ",
         "regex_pattern": r"(\d+), CN",
         "type": int,
+    },
+    # Lanczos Solver (overlap operator, "eigens" programs). Lines look like
+    # "Lanczos iter = 2, lambda_min_squared = 4.05e+00 (change = ...),
+    #  lambda_max_squared = 7.54e+00 (change = ...), target = ...".
+    # The "Lanczos iter =" identifier (with the "Lanczos " prefix) is what
+    # separates these from the kernel Lanczos lines, and the final summary
+    # lines ("lambda_min_squared = +1.7e-02 (m^2 = ...)") do not match it.
+    "Overlap_Lanczos_iterations_running_count": {
+        "line_identifier": "Lanczos iter =",
+        "regex_pattern": r"Lanczos iter =\s*(\d+),",
+        "type": int,
+    },
+    "Overlap_Lanczos_running_lambda_min_squared": {
+        "line_identifier": "Lanczos iter =",
+        "regex_pattern": r"lambda_min_squared = ([+-]?\d+(?:\.\d+)?e[+-]\d+)",
+        "type": float,
+    },
+    "Overlap_Lanczos_running_lambda_max_squared": {
+        "line_identifier": "Lanczos iter =",
+        "regex_pattern": r"lambda_max_squared = ([+-]?\d+(?:\.\d+)?e[+-]\d+)",
+        "type": float,
     },
     # CG Solver
     "CG_iterations_running_count": {
@@ -558,4 +636,9 @@ MAIN_PROGRAM_TYPE_MAPPING = {
     "||D(eta)||^2/||eta||^2": "forward_operator_norm_squared",
     "CG done": "invert",
     "BiCGStab done": "invert",
+    # Overlap-operator eigenvalue estimation ("eigens" programs)
+    "Lanczos converged after": "overlap_eigenvalue_estimation",
+    # Runs that hit the iteration cap without converging never print the
+    # "Lanczos converged after" line, but still print per-iteration lines
+    "Lanczos iter =": "overlap_eigenvalue_estimation",
 }

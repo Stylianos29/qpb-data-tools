@@ -48,7 +48,9 @@ def _extract_main_program_type(file_contents_list: List[str]) -> Optional[str]:
 
 
 def _find_line_with_identifier(
-    file_contents_list: List[str], line_identifier: str
+    file_contents_list: List[str],
+    line_identifier: str,
+    line_exclusion: Optional[str] = None,
 ) -> Optional[str]:
     """
     Find the first line containing the specified identifier.
@@ -56,6 +58,8 @@ def _find_line_with_identifier(
     Args:
         - file_contents_list: List of lines to search through
         - line_identifier: String identifier to search for
+        - line_exclusion: Optional string; lines containing it are skipped
+          even if they contain the identifier
 
     Returns:
         First matching line or None if not found
@@ -64,8 +68,19 @@ def _find_line_with_identifier(
         >>> lines = ["data = 123", "mass = 0.01", "other = abc"]
         >>> _find_line_with_identifier(lines, "mass =")
         "mass = 0.01"
+        >>> lines = ["it 1, x = 5", " x = 7"]
+        >>> _find_line_with_identifier(lines, "x =", ", x")
+        " x = 7"
     """
-    return next((line for line in file_contents_list if line_identifier in line), None)
+    return next(
+        (
+            line
+            for line in file_contents_list
+            if line_identifier in line
+            and not (line_exclusion and line_exclusion in line)
+        ),
+        None,
+    )
 
 
 def _extract_parameter_from_line(
@@ -86,11 +101,8 @@ def _extract_parameter_from_line(
         - logger: Optional logger for warnings
 
     Returns:
-        Extracted and converted parameter value, or None if extraction fails
-
-    Example:
-        >>> _extract_parameter_from_line("mass = 0.01", r"(\d+\.\d+)", "mass", float)
-        0.01
+        Extracted and converted parameter value, or None if extraction
+        fails
     """
     match = re.search(regex_pattern, matched_line)
     if not match:
@@ -138,11 +150,6 @@ def _extract_matches_from_line(line: str, pattern_details: Dict[str, Any]) -> Li
 
     Returns:
         List of converted matches (empty if no matches found)
-
-    Example:
-        >>> pattern = {"regex_pattern": r"(\d+\.\d+)", "type": float}
-        >>> _extract_matches_from_line("values: 1.23 and 4.56", pattern)
-        [1.23, 4.56]
     """
     matches = re.findall(pattern_details["regex_pattern"], line)
     if not matches:
@@ -248,6 +255,7 @@ def extract_scalar_parameters_from_file_contents(
         identifiers = param_info["line_identifier"]
         regexes = param_info["regex_pattern"]
         expected_type = param_info["type"]
+        line_exclusion = param_info.get("line_exclusion")
 
         # A parameter may have several alternative formats: identifiers
         # (and optionally regexes) given as tuples are paired by position
@@ -258,7 +266,7 @@ def extract_scalar_parameters_from_file_contents(
 
         for line_identifier, regex_pattern in zip(identifiers, regexes):
             matched_line = _find_line_with_identifier(
-                file_contents_list, line_identifier
+                file_contents_list, line_identifier, line_exclusion
             )
             if not matched_line:
                 continue
