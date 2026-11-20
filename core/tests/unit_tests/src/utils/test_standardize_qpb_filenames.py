@@ -598,6 +598,33 @@ class TestSuggestSetName:
         for g in groups:
             g.new_stem = g.stem
         summaries = summaries_for(groups, specifications)
-        order = ["Overlap_operator_method", "Kernel_operator_type",
-                 "Rational_order", "Configuration_label"]
+        order = [
+            "Overlap_operator_method",
+            "Kernel_operator_type",
+            "Rational_order",
+            "Configuration_label",
+        ]
         assert sqf.suggest_set_name(order, summaries, groups) == "KL_varying_n"
+
+    def test_three_exponential_values_count_as_varying(self, specifications):
+        groups = [
+            make_group(f"KL_Brillouin_n3_EpsCG{eps}_config{config}", specifications)
+            for eps in ("1e-08", "1e-06", "1e-04")
+            for config in ("0007200", "0018000")
+        ]
+        for g in groups:
+            g.new_stem = g.stem
+        summaries = summaries_for(groups, specifications)
+        assert summaries["Outer_solver_epsilon"].classification == "varying"
+        assert summaries["Configuration_label"].classification == "several"
+        order = [
+            "Overlap_operator_method",
+            "Kernel_operator_type",
+            "Rational_order",
+            "Outer_solver_epsilon",
+            "Configuration_label",
+        ]
+        assert (
+            sqf.suggest_set_name(order, summaries, groups)
+            == "KL_several_config_varying_EpsCG"
+        )

@@ -119,6 +119,10 @@ DISPLAY_LABELS = {
     "Kernel_operator_type": "kernel",
 }
 
+# Exponential-format parameters (tolerances like EpsCG) are rarely varied,
+# so 3 or more distinct values already count as "varying"
+EXPONENTIAL_FORMAT_SEVERAL_MAX = 2
+
 TEMPORARY_RENAME_SUFFIX = ".standardizing_tmp"
 MANIFEST_FILENAME_TEMPLATE = "{set_name}_filenames_standardization_{timestamp}.yaml"
 FLOAT_SIGNIFICANT_DIGITS = 10
@@ -525,10 +529,15 @@ def summarize_parameters(
             if parameter in g.effective_values
         }
         count = len(values)
+        maximum_for_several = (
+            EXPONENTIAL_FORMAT_SEVERAL_MAX
+            if parameter in constants.PARAMETERS_WITH_EXPONENTIAL_FORMAT
+            else several_max
+        )
         classification = (
             "constant"
             if count == 1
-            else "several" if count <= several_max else "varying"
+            else "several" if count <= maximum_for_several else "varying"
         )
         summaries[parameter] = ParameterSummary(
             parameter=parameter,
@@ -1397,7 +1406,10 @@ def undo_from_manifest(manifest_path: str, logger: LoggingWrapper) -> None:
     default=5,
     show_default=True,
     type=click.IntRange(min=2),
-    help="Max distinct values for the 'several' class (else 'varying').",
+    help=(
+        "Max distinct values for the 'several' class (else 'varying'). "
+        "Exponential-format parameters always use 2."
+    ),
 )
 @click.option(
     "-preview",
