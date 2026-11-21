@@ -173,6 +173,8 @@ AXES_LABELS_BY_COLUMN_NAME = {
     "Total_number_of_MSCG_iterations": "Total # of MSCG iterations",
     "Total_number_of_kernel_applications": "Total # of kernel applications",
     "Final_overlap_Lanczos_iteration_count": "Overlap Lanczos iterations",
+    "Number_of_deflated_modes": "# of deflated modes",
+    "Deflation_Lanczos_subspace_dimension": "Deflation Lanczos subspace dim.",
     # ---------------------------------------------------------------------------
     # PCAC mass observables
     # ---------------------------------------------------------------------------

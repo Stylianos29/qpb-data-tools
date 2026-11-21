@@ -339,6 +339,22 @@ FILE_CONTENTS_SCALAR_PATTERNS_DICTIONARY = {
         "regex_pattern": r"(\d+(\.\d+)?)",
         "type": float,
     },
+    # Deflation of the low modes of X^2 (KL/Zolotarev pfrac programs).
+    # Both are output quantities (not user-tunable), reported as, e.g.,
+    #   Deflation: subspace ready (k=1, m=138), build t = 29.1121 secs
+    # k: number of deflated low-lying modes of X^2 (chosen at runtime
+    #    from "Deflation lambda target", capped by "Deflation k max")
+    # m: dimension of the Lanczos Krylov basis needed to converge them
+    "Number_of_deflated_modes": {
+        "line_identifier": "Deflation: subspace ready",
+        "regex_pattern": r"subspace ready \(k=(\d+),",
+        "type": int,
+    },
+    "Deflation_Lanczos_subspace_dimension": {
+        "line_identifier": "Deflation: subspace ready",
+        "regex_pattern": r"subspace ready \(k=\d+, m=(\d+)\)",
+        "type": int,
+    },
     # Final results of the overlap-operator Lanczos solver ("eigens"
     # programs). The summary block prints, e.g.,
     #   Lanczos converged after 220 iters, t = 130.339 sec
