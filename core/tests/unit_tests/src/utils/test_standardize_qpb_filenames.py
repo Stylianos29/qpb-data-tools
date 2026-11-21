@@ -26,7 +26,12 @@ KL_PREFIX = "KL_Brillouin_cSW0_rho1p0_EpsMSCG1e-12_mu1p0_EpsCG1e-12"
 
 
 def log_contents(
-    mass=0.02, order=1, config="0056800", kernel="Brillouin", rho="1.00"
+    mass=0.02,
+    order=1,
+    config="0056800",
+    kernel="Brillouin",
+    rho="1.00",
+    lanczos_epsilon=None,
 ) -> str:
     """Minimal qpb invert log file with the lines the parser reads."""
     lines = [
@@ -43,6 +48,8 @@ def log_contents(
         "Inner solver epsilon = 1.000000e-12",
         "CG done, 12 vectors in t = 10.5 sec",
     ]
+    if lanczos_epsilon is not None:
+        lines.append(f"Lanczos epsilon = {lanczos_epsilon}")
     return "".join(f" {line}\n" for line in lines)
 
 
@@ -627,4 +634,218 @@ class TestSuggestSetName:
         assert (
             sqf.suggest_set_name(order, summaries, groups)
             == "KL_several_config_varying_EpsCG"
+        )
+
+
+# =============================================================================
+# EXTRA TEXT
+# =============================================================================
+
+
+class TestExtraText:
+    """Filename text that is not a parameter, e.g. "deflation"."""
+
+    def make_set(self, tmp_path, name, groups):
+        """groups: (stem, Lanczos epsilon written in the log file)."""
+        set_directory = tmp_path / name
+        set_directory.mkdir()
+        for stem, lanczos_epsilon in groups:
+            write_group(
+                set_directory,
+                stem,
+                with_correlators=False,
+                order=int(stem.split("_n")[1].split("_")[0]),
+                lanczos_epsilon=lanczos_epsilon,
+            )
+        return set_directory
+
+    @pytest.fixture
+    def half_deflation_set(self, tmp_path):
+        """Extra text on half the files; only the Lanczos epsilon differs."""
+        groups = []
+        for n in (1, 2):
+            groups.append((f"KL_Brillouin_n{n}_config0056800", "1.000000e-04"))
+            groups.append(
+                (f"KL_Brillouin_n{n}_config0056800_deflation", "1.000000e-10")
+            )
+        return self.make_set(tmp_path, "KL_half_deflation", groups)
+
+    def plan_names(self, plan_path):
+        plan = yaml.safe_load(plan_path.read_text())
+        return plan, sorted(entry["new"] for entry in plan["file_renames"])
+
+    def test_extra_text_is_shown_in_the_table(self, half_deflation_set):
+        result = run_script(["-set_dir", str(half_deflation_set), "-defaults"])
+        assert result.exit_code == 0, result.output
+        assert "(extra text)" in result.output
+        assert "(none) (2), deflation (2)" in result.output
+
+    def test_defaults_keep_the_extra_text(self, half_deflation_set):
+        result = run_script(["-set_dir", str(half_deflation_set), "-defaults"])
+        assert "Keep the extra text" not in result.output
+        assert "Nothing to do" in result.output
+
+    def test_dropping_offers_the_parameter_that_tells_files_apart(
+        self, half_deflation_set, tmp_path
+    ):
+        plan_path = tmp_path / "plan.yaml"
+        # Keep constants; add nothing; drop extra text; accept EpsLanczos; keep dir
+        result = run_script(
+            ["-set_dir", str(half_deflation_set), "-plan_out", str(plan_path)],
+            answers="\n\ndrop\ny\nn\n",
+        )
+        assert result.exit_code == 0, result.output
+        assert "EpsLanczos tells them apart" in result.output
+        plan, names = self.plan_names(plan_path)
+        # "n" has no more values than EpsLanczos here, so EpsLanczos goes last
+        assert names == [
+            "KL_Brillouin_n1_config0056800_EpsLanczos1e-10.txt",
+            "KL_Brillouin_n1_config0056800_EpsLanczos1e-4.txt",
+            "KL_Brillouin_n2_config0056800_EpsLanczos1e-10.txt",
+            "KL_Brillouin_n2_config0056800_EpsLanczos1e-4.txt",
+        ]
+        assert plan["dropped_extra_text"] == ["deflation"]
+        assert plan["added_parameters"] == ["Lanczos_epsilon"]
+
+    def test_declining_the_offer_keeps_the_extra_text(self, half_deflation_set):
+        result = run_script(
+            ["-set_dir", str(half_deflation_set)], answers="\n\ndrop\nn\nn\n"
+        )
+        assert result.exit_code == 0, result.output
+        assert "Keeping the extra text." in result.output
+        assert "Nothing to do" in result.output
+
+    def test_extra_text_is_kept_when_nothing_tells_files_apart(self, tmp_path):
+        groups = [
+            ("KL_Brillouin_n1_config0056800", "1.000000e-04"),
+            ("KL_Brillouin_n1_config0056800_deflation", "1.000000e-04"),
+        ]
+        set_directory = self.make_set(tmp_path, "KL_identical", groups)
+        # Keep constants; drop extra text; keep dir
+        result = run_script(["-set_dir", str(set_directory)], answers="\ndrop\nn\n")
+        assert result.exit_code == 0, result.output
+        assert "no parameter tells them apart" in result.output
+        assert "Nothing to do" in result.output
+
+    @pytest.fixture
+    def all_deflation_set(self, tmp_path):
+        groups = [(f"KL_Brillouin_n{n}_config0056800_deflation", None) for n in (1, 2)]
+        return self.make_set(tmp_path, "KL_all_deflation", groups)
+
+    def test_extra_text_common_to_all_files_is_simply_dropped(
+        self, all_deflation_set, tmp_path
+    ):
+        plan_path = tmp_path / "plan.yaml"
+        result = run_script(
+            ["-set_dir", str(all_deflation_set), "-plan_out", str(plan_path)],
+            answers="\ndrop\nn\n",
+        )
+        assert result.exit_code == 0, result.output
+        assert "Dropped extra text: deflation" in result.output
+        _, names = self.plan_names(plan_path)
+        assert names == [
+            "KL_Brillouin_n1_config0056800.txt",
+            "KL_Brillouin_n2_config0056800.txt",
+        ]
+
+    def test_undo_restores_the_dropped_extra_text(self, all_deflation_set):
+        before = snapshot(all_deflation_set)
+        result = run_script(
+            ["-set_dir", str(all_deflation_set), "-apply"], answers="\ndrop\nn\ny\n"
+        )
+        assert result.exit_code == 0, result.output
+        assert "deflation" not in "".join(os.listdir(all_deflation_set))
+        manifest = next(
+            p for p in all_deflation_set.parent.iterdir() if "standardization" in p.name
+        )
+        assert yaml.safe_load(manifest.read_text())["dropped_extra_text"] == [
+            "deflation"
+        ]
+
+        result = run_script(["-undo", str(manifest)], answers="y\n")
+        assert result.exit_code == 0, result.output
+        assert snapshot(all_deflation_set) == before
+
+
+# =============================================================================
+# GENERIC "SOLVER EPSILON" LINE
+# =============================================================================
+
+
+def sign_squared_log(order=1, solver_epsilon="1.000000e-14") -> str:
+    """Non-invert KL log printing only the generic "Solver epsilon" line."""
+    lines = [
+        "Dslash operator is Brillouin",
+        "Gauge field (raw_32) = /p/Nf0_b6p20_L24T48-APE/"
+        "conf_Nf0_b6p20_L24T48_apeN1a0p72.0056800",
+        "mass = 0.0",
+        f"KL iters = {order}",
+        f"Solver epsilon = {solver_epsilon}",
+        "Done vector = 1 / 1, || Sign^2(X) - 1 ||^2 = 1.0e-10",
+        "GW Diffs (per stochastic source):",
+    ]
+    return "".join(f" {line}\n" for line in lines)
+
+
+def invert_log_with_generic_solver_epsilon() -> str:
+    lines = [
+        "Dslash operator is Brillouin",
+        "Solver epsilon = 1.000000e-12",
+        "CG done, 12 vectors in t = 10.5 sec",
+    ]
+    return "".join(f" {line}\n" for line in lines)
+
+
+class TestGenericSolverEpsilon:
+    """The generic "Solver epsilon" resolves like the processing step does."""
+
+    def read(self, tmp_path, text, method, specifications):
+        path = tmp_path / "run.txt"
+        path.write_text(text)
+        direct, _ = sqf.read_contents_values(str(path), specifications, method)
+        return direct
+
+    def test_non_invert_kl_records_the_mscg_epsilon(self, tmp_path, specifications):
+        direct = self.read(tmp_path, sign_squared_log(), "Diagonal KL", specifications)
+        assert direct["Inner_solver_epsilon"] == 1e-14
+        assert "Outer_solver_epsilon" not in direct
+
+    def test_invert_chebyshev_records_the_cg_epsilon(self, tmp_path, specifications):
+        direct = self.read(
+            tmp_path,
+            invert_log_with_generic_solver_epsilon(),
+            "Chebyshev",
+            specifications,
+        )
+        assert direct["Outer_solver_epsilon"] == 1e-12
+        assert "Inner_solver_epsilon" not in direct
+
+    def test_unknown_method_leaves_it_unresolved(self, tmp_path, specifications):
+        direct = self.read(tmp_path, sign_squared_log(), None, specifications)
+        assert "Inner_solver_epsilon" not in direct
+
+    def make_set(self, tmp_path, filename_epsilon, log_epsilon):
+        set_directory = tmp_path / "KL_sign_squared"
+        set_directory.mkdir()
+        for n in (1, 2):
+            stem = f"KL_Brillouin_EpsMSCG{filename_epsilon}_n{n}_config0056800"
+            (set_directory / f"{stem}.txt").write_text(
+                sign_squared_log(order=n, solver_epsilon=log_epsilon)
+            )
+        return set_directory
+
+    def test_mscg_epsilon_can_be_dropped(self, tmp_path):
+        set_directory = self.make_set(tmp_path, "1e-14", "1.000000e-14")
+        # Drop nothing; keep the directory name
+        result = run_script(["-set_dir", str(set_directory)], answers="\nn\n")
+        assert result.exit_code == 0, result.output
+        assert "Constants kept because" not in result.output
+        assert "EpsMSCG" in result.output.split("Candidates:")[1].splitlines()[0]
+
+    def test_disagreement_with_the_generic_line_stops(self, tmp_path):
+        set_directory = self.make_set(tmp_path, "1e-12", "1.000000e-14")
+        result = run_script(["-set_dir", str(set_directory), "-defaults"])
+        assert result.exit_code == 1
+        assert (
+            "Inner_solver_epsilon is 1e-12 in the filename but 1e-14" in result.output
         )
