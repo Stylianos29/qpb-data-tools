@@ -135,9 +135,7 @@ AXES_LABELS_BY_COLUMN_NAME = {
     "Average_wall_clock_time_per_spinor": "Average wall-clock time per spinor (s)",
     "Average_wall_clock_time_per_vector": "Average wall-clock time per vector (s)",
     "Total_calculation_time": "Total wall-clock time (s)",
-    "Overlap_Lanczos_total_calculation_time": (
-        "Overlap Lanczos wall-clock time (s)"
-    ),
+    "Overlap_Lanczos_total_calculation_time": ("Overlap Lanczos wall-clock time (s)"),
     "Total_core_hours": "Computational cost (core-hours)",
     "Total_overhead_time": "Overhead time (s)",
     "Overhead_core_hours": "Overhead cost (core-hours)",

@@ -270,8 +270,7 @@ class PlotStyleManager:
             title_var = title_var[0]
 
         legend_title = (
-            self.constants.LEGEND_LABELS_BY_COLUMN_NAME.get(title_var, title_var)
-            or ""
+            self.constants.LEGEND_LABELS_BY_COLUMN_NAME.get(title_var, title_var) or ""
         )
         # Clean up title if not LaTeX
         if "$" not in legend_title:
