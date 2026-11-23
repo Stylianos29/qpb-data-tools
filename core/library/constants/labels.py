@@ -317,3 +317,18 @@ LEGEND_LABELS_BY_COLUMN_NAME = {
     "Solver_type": "Solver type:",
     "Number_of_deflated_modes": "$k=$",
 }
+
+# Legend-title overrides: used instead of LEGEND_LABELS_BY_COLUMN_NAME when
+# a column appears in the legend title rather than in the legend entries
+# (e.g. "k=" in the entries but "# of defl. modes" in the title).
+LEGEND_TITLE_LABELS_BY_COLUMN_NAME = {
+    "Number_of_deflated_modes": "# of defl. modes",
+}
+
+# Columns shown without a label prefix when they are the second labeling
+# variable: the legend entry reads "<value1> (<value2>)", e.g.
+# "Diagonal KL (Wilson)" rather than "Diagonal KL (Kernel:Wilson)".
+LEGEND_UNPREFIXED_COLUMNS = [
+    "Additional_text",
+    "Kernel_operator_type",
+]

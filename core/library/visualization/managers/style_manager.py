@@ -228,7 +228,12 @@ class PlotStyleManager:
                 legend.set_title(legend_title, prop=font_props)
 
     def _legend_label_for(self, variable: str) -> str:
-        """Legend label of a column, falling back to a readable name."""
+        """Legend-title label of a column, falling back to a readable name."""
+        title_overrides = getattr(
+            self.constants, "LEGEND_TITLE_LABELS_BY_COLUMN_NAME", {}
+        )
+        if variable in title_overrides:
+            return title_overrides[variable]
         label = self.constants.LEGEND_LABELS_BY_COLUMN_NAME.get(variable)
         if label:
             return label
@@ -269,8 +274,13 @@ class PlotStyleManager:
                 return f"{first} ({second})"
             title_var = title_var[0]
 
+        title_overrides = getattr(
+            self.constants, "LEGEND_TITLE_LABELS_BY_COLUMN_NAME", {}
+        )
         legend_title = (
-            self.constants.LEGEND_LABELS_BY_COLUMN_NAME.get(title_var, title_var) or ""
+            title_overrides.get(title_var)
+            or self.constants.LEGEND_LABELS_BY_COLUMN_NAME.get(title_var, title_var)
+            or ""
         )
         # Clean up title if not LaTeX
         if "$" not in legend_title:

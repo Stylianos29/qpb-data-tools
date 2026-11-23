@@ -1737,7 +1737,7 @@ class DataPlotter(DataFrameAnalyzer):
                 # Handle multiple values
                 val2_formatted = f"[{', '.join(str(v) for v in val2)}]"
 
-            if var2 == "Additional_text":
+            if var2 in getattr(constants, "LEGEND_UNPREFIXED_COLUMNS", []):
                 # No label prefix — just the value in parentheses
                 return f"{val1} ({val2_formatted})"
 
