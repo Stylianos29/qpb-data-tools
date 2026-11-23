@@ -1741,7 +1741,10 @@ class DataPlotter(DataFrameAnalyzer):
                 # No label prefix — just the value in parentheses
                 return f"{val1} ({val2_formatted})"
 
-            var2_label = constants.LEGEND_LABELS_BY_COLUMN_NAME.get(var2, var2)
+            var2_label = constants.LEGEND_LABELS_BY_COLUMN_NAME.get(var2)
+            if not var2_label:
+                # Unlisted column: readable name plus an explicit separator
+                var2_label = f"{var2.replace('_', ' ')}="
             return f"{val1} ({var2_label}{val2_formatted})"
         else:
             # Handle single labeling variable

@@ -107,4 +107,5 @@ PARAMETERS_OF_INTEGER_VALUE = [
     "Number_of_Chebyshev_terms",
     "Preconditioner_max_iterations",
     "Preconditioner_order",
+    "Number_of_deflated_modes",
 ]

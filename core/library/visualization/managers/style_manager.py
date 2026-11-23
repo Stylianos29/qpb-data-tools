@@ -221,25 +221,62 @@ class PlotStyleManager:
                 title_var = (
                     labeling_variable if labeling_variable else grouping_variable
                 )
-
-                if isinstance(title_var, list):
-                    # Handle list of variables
-                    title_var = title_var[0] if title_var else None
-
-                if title_var:
-                    legend_title = (
-                        self.constants.LEGEND_LABELS_BY_COLUMN_NAME.get(
-                            title_var, title_var
-                        )
-                        or ""
-                    )
-                    # Clean up title if not LaTeX
-                    if "$" not in legend_title:
-                        legend_title = legend_title.replace("_", " ")
+                legend_title = self._auto_legend_title(title_var)
 
             if legend_title:
                 font_props = FontProperties(size=font_size + 1)
                 legend.set_title(legend_title, prop=font_props)
+
+    def _legend_label_for(self, variable: str) -> str:
+        """Legend label of a column, falling back to a readable name."""
+        label = self.constants.LEGEND_LABELS_BY_COLUMN_NAME.get(variable)
+        if label:
+            return label
+        return variable.replace("_", " ")
+
+    @staticmethod
+    def _strip_label_separator(label: str) -> str:
+        """Drop a trailing '=' or ':' (also inside a closing '$')."""
+        label = label.strip()
+        if label.endswith("$"):
+            inner = label[:-1].rstrip()
+            if inner.endswith(("=", ":")):
+                return inner[:-1].rstrip() + "$"
+            return label
+        return label.rstrip("=:").rstrip()
+
+    def _auto_legend_title(
+        self, title_var: Optional[Union[str, List[str]]]
+    ) -> Optional[str]:
+        """
+        Build the legend title from the labeling (or grouping) variable(s).
+
+        A single variable gives its legend label. Two labeling variables
+        give "<first> (<second>)", mirroring the "<value1> (<value2>)"
+        format of the legend entries.
+        """
+        if not title_var:
+            return None
+
+        if isinstance(title_var, list):
+            if len(title_var) == 2 and title_var[1] != "Additional_text":
+                first = self._strip_label_separator(
+                    self._legend_label_for(title_var[0])
+                )
+                second = self._strip_label_separator(
+                    self._legend_label_for(title_var[1])
+                )
+                return f"{first} ({second})"
+            title_var = title_var[0]
+
+        legend_title = (
+            self.constants.LEGEND_LABELS_BY_COLUMN_NAME.get(title_var, title_var)
+            or ""
+        )
+        # Clean up title if not LaTeX
+        if "$" not in legend_title:
+            legend_title = legend_title.replace("_", " ")
+        return legend_title
 
     def set_axis_limits(
         self,

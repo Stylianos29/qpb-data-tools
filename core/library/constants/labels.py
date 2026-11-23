@@ -317,4 +317,5 @@ LEGEND_LABELS_BY_COLUMN_NAME = {
     "Preconditioner_MSCG_epsilon": "$\\left(\\epsilon^{\\text{prec}}_{\\text{MSCG}}\\right)^2$",
     "Preconditioner_max_iterations": "$N^{\\max}_{\\text{prec}}$=",
     "Solver_type": "Solver type:",
+    "Number_of_deflated_modes": "$k=$",
 }
