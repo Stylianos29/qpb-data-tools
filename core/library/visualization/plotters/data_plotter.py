@@ -1708,11 +1708,18 @@ class DataPlotter(DataFrameAnalyzer):
         number_format: str,
         constants,
     ) -> str:
-        """Generate label for a data group."""
-        if isinstance(labeling_variable, list) and len(labeling_variable) == 2:
-            var1, var2 = labeling_variable
+        """
+        Generate label for a data group.
+
+        With several labeling variables the label reads
+        "<value1> (<part2>, <part3>, ...)", where each part is the
+        variable's legend label followed by its value (or the bare value
+        for columns in LEGEND_UNPREFIXED_COLUMNS). Parts whose value is
+        NaN/inf are omitted.
+        """
+        if isinstance(labeling_variable, list) and len(labeling_variable) >= 2:
+            var1, *other_vars = labeling_variable
             val1 = subgroup[var1].unique()
-            val2 = subgroup[var2].unique()
 
             # Extract single values or handle multiple values
             if len(val1) == 1:
@@ -1720,32 +1727,41 @@ class DataPlotter(DataFrameAnalyzer):
             else:
                 val1 = f"[{', '.join(map(str, val1))}]"  # Handle multiple values
 
-            if len(val2) == 1:
-                val2_single = val2[0]
-                if isinstance(val2_single, float) and not math.isfinite(val2_single):
-                    # val2 is NaN/inf (e.g. Preconditioner_order for unpreconditioned
-                    # runs) — omit the second variable from the label entirely
-                    return str(val1)
-                if isinstance(val2_single, (int, float)):
-                    if var2 in constants.PARAMETERS_OF_INTEGER_VALUE:
-                        val2_formatted = str(int(val2_single))
+            unprefixed = getattr(constants, "LEGEND_UNPREFIXED_COLUMNS", [])
+            parts = []
+            for var in other_vars:
+                values = subgroup[var].unique()
+                if len(values) == 1:
+                    single = values[0]
+                    if isinstance(single, float) and not math.isfinite(single):
+                        # NaN/inf (e.g. Preconditioner_order for
+                        # unpreconditioned runs) — omit this variable
+                        continue
+                    if isinstance(single, (int, float)):
+                        if var in constants.PARAMETERS_OF_INTEGER_VALUE:
+                            formatted = str(int(single))
+                        else:
+                            formatted = f"{single:{number_format}}"
                     else:
-                        val2_formatted = f"{val2_single:{number_format}}"
+                        formatted = str(single)
                 else:
-                    val2_formatted = str(val2_single)
-            else:
-                # Handle multiple values
-                val2_formatted = f"[{', '.join(str(v) for v in val2)}]"
+                    # Handle multiple values
+                    formatted = f"[{', '.join(str(v) for v in values)}]"
 
-            if var2 in getattr(constants, "LEGEND_UNPREFIXED_COLUMNS", []):
-                # No label prefix — just the value in parentheses
-                return f"{val1} ({val2_formatted})"
+                if var in unprefixed:
+                    # No label prefix — just the value
+                    parts.append(formatted)
+                    continue
 
-            var2_label = constants.LEGEND_LABELS_BY_COLUMN_NAME.get(var2)
-            if not var2_label:
-                # Unlisted column: readable name plus an explicit separator
-                var2_label = f"{var2.replace('_', ' ')}="
-            return f"{val1} ({var2_label}{val2_formatted})"
+                var_label = constants.LEGEND_LABELS_BY_COLUMN_NAME.get(var)
+                if not var_label:
+                    # Unlisted column: readable name plus an explicit separator
+                    var_label = f"{var.replace('_', ' ')}="
+                parts.append(f"{var_label}{formatted}")
+
+            if not parts:
+                return str(val1)
+            return f"{val1} ({', '.join(parts)})"
         else:
             # Handle single labeling variable
             if isinstance(labeling_variable, str):

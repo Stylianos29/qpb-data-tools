@@ -256,22 +256,24 @@ class PlotStyleManager:
         """
         Build the legend title from the labeling (or grouping) variable(s).
 
-        A single variable gives its legend label. Two labeling variables
-        give "<first> (<second>)", mirroring the "<value1> (<value2>)"
-        format of the legend entries.
+        A single variable gives its legend label. Several labeling
+        variables give "<first> (<second>, <third>, ...)", mirroring the
+        format of the legend entries; Additional_text is left out.
         """
         if not title_var:
             return None
 
         if isinstance(title_var, list):
-            if len(title_var) == 2 and title_var[1] != "Additional_text":
+            others = [v for v in title_var[1:] if v != "Additional_text"]
+            if others:
                 first = self._strip_label_separator(
                     self._legend_label_for(title_var[0])
                 )
-                second = self._strip_label_separator(
-                    self._legend_label_for(title_var[1])
+                rest = ", ".join(
+                    self._strip_label_separator(self._legend_label_for(v))
+                    for v in others
                 )
-                return f"{first} ({second})"
+                return f"{first} ({rest})"
             title_var = title_var[0]
 
         title_overrides = getattr(
