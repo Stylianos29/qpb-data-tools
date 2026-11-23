@@ -64,6 +64,7 @@ TITLE_LABELS_BY_COLUMN_NAME = {
     "Number_of_gauge_configurations": "# of configs",
     "Threads_per_process": "$n_{\\text{OMP}}$",
     "Solver_type": "Solver",
+    "Number_of_deflated_modes": "$k$",
 }
 
 
