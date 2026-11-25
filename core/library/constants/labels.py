@@ -50,7 +50,7 @@ TITLE_LABELS_BY_COLUMN_NAME = {
     "Neuberger_order": "n",
     "Rational_order": "n",
     "KL_scaling_factor": "$\\mu$",
-    "Number_of_vectors": "# of random vecs",
+    "Number_of_vectors": "# of vecs",
     "Kappa_value": "$\\kappa$",
     "Number_of_spinors": "$n_s$",
     # Output quantities

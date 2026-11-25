@@ -1450,6 +1450,7 @@ class DataPlotter(DataFrameAnalyzer):
                 return custom_plot_titles_dict[title_key]
 
         # Prepare exclusion list
+        # TODO: Remove this hardcoded list of excluded parameters
         excluded = set(excluded_from_title_list or [])
         excluded.update(
             [
@@ -1457,7 +1458,7 @@ class DataPlotter(DataFrameAnalyzer):
                 "Maximum_Lanczos_iterations",
                 "MPI_geometry",
                 "Number_of_spinors",
-                "Number_of_vectors",
+                # "Number_of_vectors",
                 "Threads_per_process",
             ]
         )
