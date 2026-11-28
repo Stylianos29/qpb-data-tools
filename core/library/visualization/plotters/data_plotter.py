@@ -713,7 +713,7 @@ class DataPlotter(DataFrameAnalyzer):
                     show_fit_parameters_on_plot=show_fit_parameters_on_plot,
                     fit_curve_style=fit_curve_style,
                     fit_label_location=fit_label_location,
-                    fit_index_range=fit_index_range,
+                    fit_index_range=fit_slice,
                     fit_curve_range=fit_curve_range,
                     fit_min_data_points=fit_min_data_points,
                 )

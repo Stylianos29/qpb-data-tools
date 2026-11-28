@@ -398,6 +398,229 @@ class TestGvarFitting:
             pytest.skip(f"Gvar fitting failed: {e}")
 
 
+def _as_tuples(values, errors):
+    """Build an object array of (value, error) tuples."""
+    data = np.empty(len(values), dtype=object)
+    data[:] = list(zip(values, np.broadcast_to(errors, len(values))))
+    return data
+
+
+# Fixed scatter around y = 2x + 1, so that results are reproducible
+X_POINTS = np.arange(1.0, 9.0)
+Y_POINTS = 2.0 * X_POINTS + 1.0
+Y_POINTS += np.array([0.05, -0.03, 0.02, -0.04, 0.03, -0.01, -0.05, 0.04])
+
+
+def _odr_linear_fit(x, x_errors, y, y_errors):
+    """Independent errors-in-variables reference: (parameters, errors)."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        from scipy import odr
+
+        output = odr.ODR(
+            odr.RealData(x, y, sx=x_errors, sy=y_errors),
+            odr.Model(lambda beta, x: beta[0] * x + beta[1]),
+            beta0=[1.0, 0.0],
+        ).run()
+    # cov_beta is the covariance before rescaling by the residual variance
+    return output.beta, np.sqrt(np.diag(output.cov_beta))
+
+
+class TestXUncertainties:
+    """Fits where the x data are (value, error) tuples."""
+
+    @pytest.mark.parametrize("x_scale, y_scale", [(1.0, 1.0), (1e-3, 1e-2), (1.0, 1e3)])
+    def test_linear_fit_matches_odr(self, curve_fitter, mock_axes, x_scale, y_scale):
+        """Same result as ODR at any data scale, with unequal x errors."""
+        x = X_POINTS * x_scale
+        y = Y_POINTS * y_scale
+        x_errors = np.linspace(0.05, 0.2, len(x)) * x_scale
+        y_errors = np.full(len(y), 0.1 * y_scale)
+
+        result = curve_fitter.apply_fit(
+            mock_axes,
+            _as_tuples(x, x_errors),
+            _as_tuples(y, y_errors),
+            "linear",
+            show_parameters=False,
+        )
+
+        expected, expected_errors = _odr_linear_fit(x, x_errors, y, y_errors)
+        assert result["method"] == "gvar"
+        parameters = result["parameters"]
+        np.testing.assert_allclose([p.mean for p in parameters], expected, rtol=1e-4)
+        np.testing.assert_allclose(
+            [p.sdev for p in parameters], expected_errors, rtol=1e-2
+        )
+        mock_axes.plot.assert_called_once()
+        np.testing.assert_allclose(result["x_curve"][[0, -1]], x[[0, -1]])
+
+    def test_x_errors_increase_parameter_errors(self, curve_fitter, mock_axes):
+        """The x uncertainties must not be silently ignored."""
+        y = _as_tuples(Y_POINTS, 0.1)
+
+        without = curve_fitter.apply_fit(
+            mock_axes, X_POINTS, y, "linear", show_parameters=False
+        )
+        with_errors = curve_fitter.apply_fit(
+            mock_axes,
+            _as_tuples(X_POINTS, 0.2),
+            y,
+            "linear",
+            show_parameters=False,
+        )
+
+        assert with_errors["parameters"][0].sdev > 2 * without["parameters"][0].sdev
+
+    def test_nonlinear_fit(self, curve_fitter, mock_axes):
+        """x uncertainties work with other fit functions too."""
+        x = np.linspace(1.0, 5.0, 8)
+        y = 2.0 * x**1.5
+
+        result = curve_fitter.apply_fit(
+            mock_axes,
+            _as_tuples(x, 0.01),
+            _as_tuples(y, 0.1),
+            "power_law",
+            show_parameters=False,
+        )
+
+        np.testing.assert_allclose(
+            [p.mean for p in result["parameters"]], [2.0, 1.5], rtol=1e-4
+        )
+
+    def test_parameter_display_and_formatting(self, curve_fitter, mock_axes):
+        """Only the function parameters are reported, not the fitted x."""
+        result = curve_fitter.apply_fit(
+            mock_axes,
+            _as_tuples(X_POINTS, 0.1),
+            _as_tuples(Y_POINTS, 0.1),
+            "linear",
+            show_parameters=True,
+        )
+
+        text = mock_axes.text.call_args[0][2]
+        assert text.startswith("a=") and ", b=" in text and "c=" not in text
+        assert len(result["parameters"]) == 2
+        assert "b = " in curve_fitter.format_fit_results(result)
+
+    def test_index_range(self, curve_fitter, mock_axes):
+        """index_range selects points from tuple x data."""
+        result = curve_fitter.apply_fit(
+            mock_axes,
+            _as_tuples(X_POINTS, 0.1),
+            _as_tuples(Y_POINTS, 0.1),
+            "linear",
+            index_range=slice(2, 6),
+            show_parameters=False,
+        )
+
+        assert len(result["fit_result"].y) == 4
+
+    @pytest.mark.parametrize(
+        "x, y, message",
+        [
+            (
+                _as_tuples(X_POINTS, 0.1),
+                Y_POINTS,
+                "x data has uncertainties but y data does not",
+            ),
+            (
+                _as_tuples(X_POINTS, 0.0),
+                _as_tuples(Y_POINTS, 0.1),
+                "x uncertainties must be positive",
+            ),
+        ],
+    )
+    def test_unsupported_input_warns(self, curve_fitter, mock_axes, x, y, message):
+        """Unsupported input gives a descriptive warning and no curve."""
+        with pytest.warns(UserWarning, match=message):
+            result = curve_fitter.apply_fit(
+                mock_axes, x, y, "linear", show_parameters=False
+            )
+
+        assert result is None
+        mock_axes.plot.assert_not_called()
+
+
+class TestInvalidPoints:
+    """Invalid points are excluded from the fit, not only from the count."""
+
+    BAD_PAIRS = [(np.nan, np.nan), (np.nan, 0.1), (5.0, np.nan), (np.inf, 0.1)]
+
+    @staticmethod
+    def _fit(curve_fitter, ax, x, y):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            return curve_fitter.apply_fit(ax, x, y, "linear", show_parameters=False)
+
+    def _assert_same_as_without_point(self, curve_fitter, ax, x, y, index):
+        result = self._fit(curve_fitter, ax, x, y)
+        reference = self._fit(
+            curve_fitter, ax, np.delete(x, index), np.delete(y, index)
+        )
+
+        for actual, expected in zip(result["parameters"], reference["parameters"]):
+            assert str(actual) == str(expected)
+        np.testing.assert_allclose(result["x_curve"], reference["x_curve"])
+
+    @pytest.mark.parametrize("bad", BAD_PAIRS + [np.nan, None])
+    @pytest.mark.parametrize("index", [0, 3])
+    def test_invalid_y_with_float_x(self, curve_fitter, mock_axes, bad, index):
+        y = _as_tuples(Y_POINTS, 0.1)
+        y[index] = bad
+
+        self._assert_same_as_without_point(curve_fitter, mock_axes, X_POINTS, y, index)
+
+    @pytest.mark.parametrize("bad", BAD_PAIRS + [np.nan, None])
+    @pytest.mark.parametrize("axis", ["x", "y"])
+    def test_invalid_point_with_tuple_x_and_y(self, curve_fitter, mock_axes, bad, axis):
+        data = {"x": _as_tuples(X_POINTS, 0.1), "y": _as_tuples(Y_POINTS, 0.1)}
+        data[axis][0] = bad
+
+        self._assert_same_as_without_point(
+            curve_fitter, mock_axes, data["x"], data["y"], 0
+        )
+
+    def test_nan_x_with_tuple_y(self, curve_fitter, mock_axes):
+        x = X_POINTS.copy()
+        x[3] = np.nan
+
+        self._assert_same_as_without_point(
+            curve_fitter, mock_axes, x, _as_tuples(Y_POINTS, 0.1), 3
+        )
+
+    @pytest.mark.parametrize("axis", ["x", "y"])
+    def test_nan_in_float_data(self, curve_fitter, mock_axes, axis):
+        data = {"x": X_POINTS.copy(), "y": Y_POINTS.copy()}
+        data[axis][3] = np.nan
+
+        self._assert_same_as_without_point(
+            curve_fitter, mock_axes, data["x"], data["y"], 3
+        )
+
+    def test_too_few_valid_points(self, curve_fitter, mock_axes):
+        y = _as_tuples([1.0, 2.0, 3.0], 0.1)
+        y[1:] = [(np.nan, np.nan), (3.0, np.nan)]
+
+        with pytest.warns(UserWarning, match="1 points provided, minimum 2"):
+            result = curve_fitter.apply_fit(
+                mock_axes, np.array([1.0, 2.0, 3.0]), y, "linear"
+            )
+
+        assert result is None
+
+    def test_mixed_tuple_and_number_rejected(self, curve_fitter, mock_axes):
+        """A finite number among tuples is an error, not a missing point."""
+        y = _as_tuples(Y_POINTS, 0.1)
+        y[2] = 7.0
+
+        with pytest.warns(UserWarning, match="Cannot mix"):
+            result = curve_fitter.apply_fit(mock_axes, X_POINTS, y, "linear")
+
+        assert result is None
+
+
 class TestUtilityMethods:
     """Test utility methods."""
 

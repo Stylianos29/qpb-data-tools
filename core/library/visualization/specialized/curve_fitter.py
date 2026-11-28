@@ -24,6 +24,7 @@ class CurveFitter:
     This class provides functionality for:
         - Fitting various mathematical functions to data
         - Supporting both scipy and gvar-based fitting
+        - Handling uncertainties in y, or in both x and y
         - Displaying fit curves on plots
         - Formatting and displaying fit parameters
         - Handling fit failures gracefully
@@ -34,6 +35,10 @@ class CurveFitter:
         - Power law: y = a*x^b
         - Shifted power law: y = a/(x-b) + c
     """
+
+    # Prior width of the function parameters, relative to their scale, in
+    # fits with x uncertainties
+    _WIDE_PRIOR_FACTOR = 1e4
 
     def __init__(self, use_adaptive_guesses=True):
         """Initialize the curve fitter with optional adaptive parameter
@@ -139,12 +144,17 @@ class CurveFitter:
         """
         Apply curve fitting to data and display results.
 
+        Points with a non-finite value or error in x or y are excluded
+        from the fit.
+
         Parameters:
         -----------
         - ax : matplotlib.axes.Axes
             The axes to add the fit curve to
         - x_data : np.ndarray
-            X-axis data for fitting
+            X-axis data for fitting. Can contain (value, error) tuples,
+            in which case y_data must contain them too and every x
+            error must be positive.
         - y_data : np.ndarray
             Y-axis data for fitting (can contain tuples for
             uncertainties)
@@ -196,15 +206,15 @@ class CurveFitter:
                 fit_function, 2
             )
 
-            # Remove NaN values to get the actual usable data count
-            if self._has_uncertainties(y_data):
-                # For uncertainty data, extract values for validation
-                y_values = np.array(
-                    [val[0] if isinstance(val, tuple) else val for val in y_data]
-                )
-                valid_mask = ~np.isnan(x_data) & ~np.isnan(y_values)
-            else:
-                valid_mask = ~np.isnan(x_data) & ~np.isnan(y_data)
+            # Separate central values from uncertainties (None if absent)
+            x_values, x_errors = self._split_values_and_errors(x_data)
+            y_values, y_errors = self._split_values_and_errors(y_data)
+
+            # Drop every point with a non-finite value or uncertainty
+            valid_mask = np.isfinite(x_values) & np.isfinite(y_values)
+            for errors in (x_errors, y_errors):
+                if errors is not None:
+                    valid_mask &= np.isfinite(errors)
 
             valid_data_count = np.sum(valid_mask)
 
@@ -216,19 +226,34 @@ class CurveFitter:
                 )
                 return None
 
+            x_values = x_values[valid_mask]
+            y_values = y_values[valid_mask]
+            if x_errors is not None:
+                x_errors = x_errors[valid_mask]
+            if y_errors is not None:
+                y_errors = y_errors[valid_mask]
+
+            if x_errors is not None:
+                if y_errors is None:
+                    raise ValueError(
+                        "x data has uncertainties but y data does not; "
+                        "this combination is not supported."
+                    )
+                if np.any(x_errors <= 0):
+                    raise ValueError("x uncertainties must be positive.")
+
             # Get adaptive initial parameters
             self.initial_guess = self._get_initial_parameters(
-                fit_function, x_data, y_data
+                fit_function, x_values, y_values
             )
 
-            # Check if we have uncertainty data (tuples)
-            has_uncertainties = self._has_uncertainties(y_data)
-
-            if has_uncertainties:
+            if y_errors is not None:
                 return self._apply_gvar_fit(
                     ax,
-                    x_data,
-                    y_data,
+                    x_values,
+                    x_errors,
+                    y_values,
+                    y_errors,
                     fit_function,
                     show_parameters,
                     curve_style,
@@ -241,8 +266,8 @@ class CurveFitter:
             else:
                 return self._apply_scipy_fit(
                     ax,
-                    x_data,
-                    y_data,
+                    x_values,
+                    y_values,
                     fit_function,
                     show_parameters,
                     curve_style,
@@ -278,10 +303,7 @@ class CurveFitter:
         # Get the fitting function
         func = self.scipy_functions[fit_function]
 
-        # Remove NaN values
-        valid_mask = ~np.isnan(x_data) & ~np.isnan(y_data)
-        x_fit = x_data[valid_mask]
-        y_fit = y_data[valid_mask]
+        x_fit, y_fit = x_data, y_data
 
         # Special validation for power law
         if fit_function == "power_law" and np.any(x_fit <= 0):
@@ -326,7 +348,9 @@ class CurveFitter:
         self,
         ax: Axes,
         x_data: np.ndarray,
-        y_data: np.ndarray,
+        x_errors: Optional[np.ndarray],
+        y_values: np.ndarray,
+        y_errors: np.ndarray,
         fit_function: str,
         show_parameters: bool,
         curve_style: Optional[Dict[str, Any]],
@@ -336,28 +360,52 @@ class CurveFitter:
         num_points: int,
         series_color: Optional[str],
     ) -> Dict[str, Any]:
-        """Apply gvar-based curve fitting with uncertainties."""
+        """
+        Apply gvar-based curve fitting with uncertainties.
+
+        With x_errors, the true x positions are fitted alongside the
+        function parameters, using the measured x values and errors as
+        their priors. All x and y errors are treated as independent. The
+        fit parameters then sit in fit_result.p["p"], and the fitted x
+        positions in fit_result.p["x"].
+        """
         if fit_function not in self.gvar_functions:
             raise ValueError(f"Unsupported fit function for gvar: '{fit_function}'")
 
-        # Extract values and uncertainties
-        y_values = np.array([t[0] for t in y_data])
-        y_errors = np.array([t[1] for t in y_data])
-
         # Create gvar array
         y_gv = gvar.gvar(y_values, y_errors)
-        x_data = np.asarray(x_data, dtype=float)
 
         # Get the fitting function
         func = self.gvar_functions[fit_function]
 
         # Perform the fit
-        fit_result = lsqfit.nonlinear_fit(
-            data=(x_data, y_gv),
-            fcn=func,
-            p0=self.initial_guess,
-            debug=False,
-        )
+        if x_errors is None:
+            fit_result = lsqfit.nonlinear_fit(
+                data=(x_data, y_gv),
+                fcn=func,
+                p0=self.initial_guess,
+                debug=False,
+            )
+            parameters = fit_result.p
+        else:
+            # lsqfit needs a prior for every fitted quantity, so the
+            # function parameters get priors wide enough not to
+            # constrain them
+            initial_guess = np.asarray(self.initial_guess, dtype=float)
+            prior_widths = self._WIDE_PRIOR_FACTOR * np.maximum(
+                np.abs(initial_guess), max(1.0, np.max(np.abs(y_values)))
+            )
+            fit_result = lsqfit.nonlinear_fit(
+                data=y_gv,
+                prior={
+                    "x": gvar.gvar(x_data, x_errors),
+                    "p": gvar.gvar(initial_guess, prior_widths),
+                },
+                fcn=lambda p: func(p["x"], p["p"]),
+                p0={"x": x_data, "p": initial_guess},
+                debug=False,
+            )
+            parameters = fit_result.p["p"]
 
         # Generate fit curve
         if curve_range is not None:
@@ -365,7 +413,7 @@ class CurveFitter:
         else:
             x_curve = np.linspace(np.min(x_data), np.max(x_data), num_points)
 
-        fit_params = gvar.mean(fit_result.p)
+        fit_params = gvar.mean(parameters)
         y_curve = func(x_curve, fit_params)
 
         # Plot the fit curve
@@ -375,25 +423,49 @@ class CurveFitter:
         # Display parameters if requested
         if show_parameters:
             self._display_gvar_parameters(
-                ax, fit_result.p, fit_function, parameter_format, label_location
+                ax, parameters, fit_function, parameter_format, label_location
             )
 
         return {
             "function": fit_function,
-            "parameters": fit_result.p,
+            "parameters": parameters,
             "fit_result": fit_result,
             "x_curve": x_curve,
             "y_curve": y_curve,
             "method": "gvar",
         }
 
-    def _has_uncertainties(self, y_data: np.ndarray) -> bool:
-        """Check if y_data contains uncertainty tuples."""
-        if len(y_data) == 0:
-            return False
+    def _has_uncertainties(self, data: np.ndarray) -> bool:
+        """Check if data contains (value, error) tuples."""
+        # Any element may be a tuple: a missing point can be a bare NaN
+        return any(isinstance(item, tuple) and len(item) == 2 for item in data)
 
-        # Check if first element is a tuple with 2 elements
-        return isinstance(y_data[0], tuple) and len(y_data[0]) == 2
+    def _split_values_and_errors(
+        self, data: np.ndarray
+    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        """
+        Split data into float arrays of values and uncertainties.
+
+        The uncertainties are None for data without (value, error)
+        tuples. In tuple data, a bare NaN or None marks a missing point.
+        Any other non-tuple element raises ValueError.
+        """
+        if not self._has_uncertainties(data):
+            return np.asarray(data, dtype=float), None
+
+        pairs = []
+        for item in data:
+            if isinstance(item, tuple) and len(item) == 2:
+                pairs.append(item)
+            elif item is None or (np.isscalar(item) and np.isnan(item)):
+                pairs.append((np.nan, np.nan))
+            else:
+                raise ValueError(
+                    f"Cannot mix (value, error) tuples with other data: {item!r}"
+                )
+
+        values, errors = np.array(pairs, dtype=float).T
+        return values, errors
 
     def _get_curve_style(
         self,
@@ -535,30 +607,18 @@ class CurveFitter:
         """
         Get initial parameters with adaptive estimation and fallback.
 
-        Works for both scipy and gvar fitting since estimation happens
-        before method selection.
+        Takes central values only, so it serves both scipy and gvar
+        fitting.
         """
         if not self.use_adaptive_guesses:
             return self.fallback_params[fit_function]
 
         try:
-            # Extract raw values if y_data contains uncertainties
-            if self._has_uncertainties(y_data):
-                y_values = np.array(
-                    [val[0] if isinstance(val, tuple) else val for val in y_data]
-                )
-            else:
-                y_values = y_data.copy()
-
             # Try adaptive estimation
-            adaptive_guess = self._adaptive_initial_guess(
-                fit_function, x_data, y_values
-            )
+            adaptive_guess = self._adaptive_initial_guess(fit_function, x_data, y_data)
 
             # Validation: check for NaN, inf, or unreasonable values
-            if self._validate_parameters(
-                adaptive_guess, fit_function, x_data, y_values
-            ):
+            if self._validate_parameters(adaptive_guess, fit_function, x_data, y_data):
                 return adaptive_guess
             else:
                 warnings.warn(
